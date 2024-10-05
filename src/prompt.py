@@ -16,10 +16,12 @@ Responda somente em JSON.
 Preencha o seguinte JSON exemplo:
 {json}
 Os itens estarão no formato NOME_ITEM QUANTIDADE PRECO_TOTAL_ITEM, para descobrir o preço unitário, divida o PRECO_TOTAL_PRATO pela QUANTIDADE.
-Em caso de itens repetidos, some as quantidades e calcule o preço total.
 O valor_total é o valor total da comanda, sem descontos.
 O valor_taxa_servico deve ser calculado: {taxa_servico}% do valor_total.
 O valor_final é o valor total com o desconto aplicado: {desconto}%
+Os valores deverão estar separados por vírgula.
+Em caso de itens repetidos, some as quantidades e calcule o preço total.
+
 {detalhes}
 
 {comanda}
