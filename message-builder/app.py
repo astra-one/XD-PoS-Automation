@@ -3,6 +3,7 @@ import asyncio
 import configparser
 from processor import OrderProcessor
 from message_builder import MessageBuilder
+from models import ComandaData
 
 
 def read_config_file(filename: str) -> configparser.ConfigParser:
@@ -36,16 +37,21 @@ def read_comanda_file(filename: str) -> str:
 async def process_comanda(comanda_text: str, api_key: str):
     """Processes the 'comanda' and performs corrections if needed."""
     processor = OrderProcessor(comanda_text, api_key)
-    comanda_data, validation_response = await processor.process_and_validate()
-
-    while not validation_response.is_valid:
-        print(f"Comanda invalid: {validation_response.descricao}")
-        print(f"Attempting to correct...")
-        comanda_data, validation_response = await processor.correct_comanda(
-            comanda_data, validation_response.descricao
-        )
+    comanda_data = await processor.process_data()
+    consolidate_comanda(comanda_data)
 
     return comanda_data
+
+
+def consolidate_comanda(comanda_data: ComandaData):
+    consolidated = {}
+    for pedido in comanda_data.pedidos:
+        key = (pedido.nome_prato, pedido.preco_unitario)
+        if key in consolidated:
+            consolidated[key].quantidade += pedido.quantidade
+        else:
+            consolidated[key] = pedido
+    comanda_data.pedidos = list(consolidated.values())
 
 
 async def build_and_save_message(comanda_data, api_key: str, output_file: str):
@@ -71,7 +77,7 @@ async def main():
     print("Comanda processed successfully!")
     for pedido in comanda_data.pedidos:
         print(
-            f"{pedido.quantidade}x {pedido.nome_prato} - R$ {pedido.preco_unitario:.2f}"
+        f"{pedido.quantidade}x {pedido.nome_prato} - R$ {(pedido.quantidade * pedido.preco_unitario):.2f}"
         )
     print(f"Taxa de serviço: R$ {comanda_data.valor_taxa_servico:.2f}")
     print(f"Total Bruto: R$ {comanda_data.valor_total_bruto:.2f}")

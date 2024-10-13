@@ -17,7 +17,3 @@ class ComandaData(BaseModel):
     valor_desconto: float = Field(default=0.0)
     valor_total_desconto: float = Field(default=0.0)
     pedidos: list[Pedido]
-
-class ValidateData(BaseModel):
-    is_valid: bool
-    descricao: str
