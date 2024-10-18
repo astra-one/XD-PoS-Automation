@@ -211,6 +211,31 @@ class HTTPSClient:
         print(f"  Active           : {self.selected_active}")
         print(f"  Type             : {self.selected_type}")
         return True
+    
+    def select_by_id(self, credentials, credential_id):
+        """Select a credential by its ID."""
+        for credential in credentials:
+            if credential.get("credentialId") == credential_id:
+                # Store the selected credential details in class variables
+                self.selected_credential_id = credential.get("credentialId")
+                self.selected_username = credential.get("username")
+                self.selected_terminal = credential.get("terminal")
+                self.selected_authorization = credential.get("authorization")
+                self.selected_expiration_date = credential.get("expirationDate")
+                self.selected_active = credential.get("active")
+                self.selected_type = credential.get("type")
+
+                print(f"\n[Client] Credential {self.selected_credential_id} selected:")
+                print(f"  Username         : {self.selected_username}")
+                print(f"  Terminal         : {self.selected_terminal}")
+                print(f"  Authorization    : {self.selected_authorization}")
+                print(f"  Expiration Date  : {self.selected_expiration_date}")
+                print(f"  Active           : {self.selected_active}")
+                print(f"  Type             : {self.selected_type}")
+                return True
+
+        print(f"[Client] No credential found with ID {credential_id}.")
+        return False
 
 
 # Usage example
@@ -238,10 +263,17 @@ if __name__ == "__main__":
             #     # Step 4: Request device configuration
             #     client.request_device_configuration()
 
-            # Step 3: Select a random credential
-            if client.select_random_credential(matched_credentials):
+            # # Step 3: Select a random credential
+            # if client.select_random_credential(matched_credentials):
+            #     # Step 4: Request device configuration
+            #     client.request_device_configuration()
+
+            # Step 3: Select a credential by ID
+            credential_id = "caf13451-e5d9-492b-9265-85bf9a29b7ad"
+            if client.select_by_id(matched_credentials, credential_id):
                 # Step 4: Request device configuration
                 client.request_device_configuration()
+
         else:
             print("Failed to match credentials.")
     else:

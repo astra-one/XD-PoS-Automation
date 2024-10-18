@@ -46,12 +46,16 @@ async def process_comanda(comanda_text: str, api_key: str):
 def consolidate_comanda(comanda_data: ComandaData):
     consolidated = {}
     for pedido in comanda_data.pedidos:
+        if pedido.preco_unitario == 0:
+            continue
+        
         key = (pedido.nome_prato, pedido.preco_unitario)
         if key in consolidated:
             consolidated[key].quantidade += pedido.quantidade
         else:
             consolidated[key] = pedido
     comanda_data.pedidos = list(consolidated.values())
+
 
 
 async def build_and_save_message(comanda_data, api_key: str, output_file: str):

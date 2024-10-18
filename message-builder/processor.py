@@ -47,6 +47,5 @@ class OrderProcessor:
         comanda_data.valor_taxa_servico = comanda_data.valor_pratos * comanda_data.porcentagem_taxa_servico / 100
         comanda_data.valor_total_bruto = comanda_data.valor_pratos + comanda_data.valor_taxa_servico
         comanda_data.valor_desconto = comanda_data.valor_total_bruto * comanda_data.porcentagem_desconto / 100
-        comanda_data.valor_total_desconto = comanda_data.valor_total_bruto - comanda_data.valor_desconto
 
         return comanda_data

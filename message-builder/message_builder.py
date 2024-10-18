@@ -24,9 +24,9 @@ class MessageBuilder:
         summary_message = (
             f"✨ Taxa de Serviço: R$ {self.order.valor_taxa_servico:.2f}\n"
             f"💳 Total Bruto: R$ {self.order.valor_total_bruto:.2f}\n"
-            f"💸 *Desconto* (*{self.order.porcentagem_desconto}*%): -R$ {(self.order.valor_desconto):.2f}\n"
-            "\n-----------------------------------\n"
-            f"*🔹 Total com Desconto: R$ {self.order.valor_total_desconto:.2f}*"
+            # f"💸 *Desconto* (*{self.order.porcentagem_desconto}*%): -R$ {(self.order.valor_desconto):.2f}\n"
+            # "\n-----------------------------------\n"
+            # f"*🔹 Total com Desconto: R$ {self.order.valor_total_desconto:.2f}*"
         )
         message_parts.append(summary_message)
 
