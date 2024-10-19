@@ -1,7 +1,0 @@
-Comanda 42:
-H2O - 1.0 X R$ 10.00 = R$ 10.00
-LIMAO - 1.0 X R$ 0.00 = R$ 0.00
-AGUA COM GAS - 1.0 X R$ 7.00 = R$ 7.00
-GELO E LIMÃO RODELA - 1.0 X R$ 0.00 = R$ 0.00
-BUFFET KG - 1.0 X R$ 60.00 = R$ 60.00
-BUFFET KG - 1.0 X R$ 40.00 = R$ 40.00
