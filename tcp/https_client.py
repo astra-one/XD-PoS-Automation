@@ -4,7 +4,7 @@ import socket
 import json
 import uuid
 import random
-from datetime import datetime
+from datetime import datetime, timedelta
 
 
 class HTTPSClient:
@@ -16,7 +16,6 @@ class HTTPSClient:
         return cls._instance
 
     def __init__(self, base_url="https://myxd1.azurewebsites.net"):
-        # Initialize only if not already initialized
         if not hasattr(self, "_initialized"):
             self.base_url = base_url
             self.auth_url = f"{self.base_url}/oauth/token"
@@ -267,7 +266,10 @@ class HTTPSClient:
 
             # Check if expiration_date exists and is an integer
             if isinstance(expiration_date, int):
-                if latest_expiration_date is None or expiration_date > latest_expiration_date:
+                if (
+                    latest_expiration_date is None
+                    or expiration_date > latest_expiration_date
+                ):
                     latest_expiration_date = expiration_date
                     latest_credential = credential
 
@@ -294,6 +296,119 @@ class HTTPSClient:
         print("[Client] No credentials found with valid expiration dates.")
         return False
 
+    def add_credentials(self):
+        """Generate new credentials and send a POST request to add them to the server."""
+        if not self.access_token:
+            print("[Client] Error: You must authenticate first.")
+            return None
+
+        url = f"{self.base_url}/myxdcredentials"
+        headers = {
+            "Authorization": f"Bearer {self.access_token}",
+            "Content-Type": "application/json",
+        }
+
+        try:
+            # Generate new credential details
+            credential_id = str(uuid.uuid4())  # Generate unique credential ID
+            username = "XDBR.105112"  # Fixed username
+            password = "new_password"  # Could be dynamically set
+            terminal = 1  # Fixed terminal as requested
+            authorization = str(uuid.uuid4().hex)  # Generate random authorization code
+            expiration_date = int(
+                (datetime.now() + timedelta(days=365)).timestamp() * 1000
+            )  # Expiration date one year from now in milliseconds
+            active = False  # Fixed to False
+            type = 1  # Fixed to 1
+
+            credentials_data = {
+                "credentialId": credential_id,
+                "username": username,
+                "password": password,
+                "terminal": terminal,
+                "authorization": authorization,
+                "expirationDate": expiration_date,
+                "active": active,
+                "type": type,
+            }
+
+            response = requests.post(url, headers=headers, json=credentials_data)
+
+            print("Response:", response.json())
+
+            if response.status_code == 200:
+                print(f"[Client] Credentials added successfully:")
+                print(f"  Credential ID    : {credential_id}")
+                print(f"  Username         : {username}")
+                print(f"  Terminal         : {terminal}")
+                print(f"  Authorization    : {authorization}")
+                print(f"  Expiration Date  : {expiration_date}")
+                print(f"  Active           : {active}")
+                print(f"  Type             : {type}")
+                return True
+            else:
+                print(
+                    f"[Client] Failed to add credentials with status code {response.status_code}"
+                )
+
+        except requests.exceptions.RequestException as e:
+            print(f"[Client] An error occurred during credential addition: {e}")
+            return None
+
+def handle_authentication_and_request(
+    username,
+    password,
+    client_id,
+    client_secret,
+    username_app,
+    password_app,
+):
+    """
+    This function handles the full authentication and credential selection process.
+
+    Args:
+        username (str): The username for authentication.
+        password (str): The password for authentication.
+        client_id (str): The client ID for OAuth.
+        client_secret (str): The client secret for OAuth (if required).
+        username_app (str): The username for matching credentials.
+        password_app (str): The password for matching credentials.
+
+    Returns:
+        bool: True if the process completes successfully, False otherwise.
+    """
+    client = HTTPSClient()
+
+    # Step 1: Authenticate
+    success = client.authenticate(username, password, client_id, client_secret)
+    if not success:
+        print("Authentication failed.")
+        return False
+
+    print("Authentication successful!")
+
+    # Step 2: Match credentials
+    matched_credentials = client.match_credentials(username_app, password_app)
+    if not matched_credentials:
+        print("Failed to match credentials.")
+        return False
+
+    print("Credentials matched successfully!")
+
+    # Step 3: Select the credential with the latest expiration date
+    if client.select_by_latest_expiration(matched_credentials):
+        # Step 4: Request device configuration
+        device_config = client.request_device_configuration()
+        if device_config:
+            print("Device configuration received:", device_config)
+            return True
+        else:
+            print("Failed to receive device configuration.")
+            return False
+    else:
+        print("Failed to select credential by latest expiration date.")
+        return False
+
 
 # Usage example
 if __name__ == "__main__":
@@ -305,33 +420,15 @@ if __name__ == "__main__":
     client_id = "mobileapps"
     client_secret = ""  # If a client secret is required, add it here.
 
+    handle_authentication_and_request(
+        username, password, client_id, client_secret, username_app, password_app
+    )
     # Step 1: Authenticate
-    success = client.authenticate(username, password, client_id, client_secret)
-    if success:
-        print("Authentication successful!")
+    # success = client.authenticate(username, password, client_id, client_secret)
+    # if success:
+    #     print("Authentication successful!")
 
-        # Step 2: Match credentials
-        matched_credentials = client.match_credentials(username_app, password_app)
-        if matched_credentials:
-            print("Credentials matched successfully!")
-
-            # # Step 3: Select the first active credential
-            # if client.select_active_credential(matched_credentials):
-            #     # Step 4: Request device configuration
-            #     client.request_device_configuration()
-
-            # Step 3: Select the latest expiration date credential
-            if client.select_by_latest_expiration(matched_credentials):
-                # Step 4: Request device configuration
-                client.request_device_configuration()
-
-            # # Step 3: Select a credential by ID
-            # credential_id = "ed115c28-dc64-4072-8a7b-cae0c94ef2c6"
-            # if client.select_by_id(matched_credentials, credential_id):
-            #     # Step 4: Request device configuration
-            #     client.request_device_configuration()
-
-        else:
-            print("Failed to match credentials.")
-    else:
-        print("Authentication failed.")
+    #     # Step 2: Add new credentials
+    #     client.add_credentials()
+    # else:
+    #     print("Authentication failed.")
