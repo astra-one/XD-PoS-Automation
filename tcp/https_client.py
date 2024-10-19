@@ -4,6 +4,7 @@ import socket
 import json
 import uuid
 import random
+from datetime import datetime
 
 
 class HTTPSClient:
@@ -256,6 +257,43 @@ class HTTPSClient:
         print(f"[Client] No credential found with ID {credential_id}.")
         return False
 
+    def select_by_latest_expiration(self, credentials):
+        """Select the credential with the largest expiration date (as an integer)."""
+        latest_credential = None
+        latest_expiration_date = None
+
+        for credential in credentials:
+            expiration_date = credential.get("expirationDate")
+
+            # Check if expiration_date exists and is an integer
+            if isinstance(expiration_date, int):
+                if latest_expiration_date is None or expiration_date > latest_expiration_date:
+                    latest_expiration_date = expiration_date
+                    latest_credential = credential
+
+        if latest_credential:
+            # Store the selected credential details in class variables
+            self.selected_credential_id = latest_credential.get("credentialId")
+            self.selected_username = latest_credential.get("username")
+            self.selected_terminal = latest_credential.get("terminal")
+            self.selected_authorization = latest_credential.get("authorization")
+            self.selected_expiration_date = latest_expiration_date
+            self.selected_active = latest_credential.get("active")
+            self.selected_type = latest_credential.get("type")
+
+            print(f"\n[Client] Credential with latest expiration date selected:")
+            print(f"  Credential ID    : {self.selected_credential_id}")
+            print(f"  Username         : {self.selected_username}")
+            print(f"  Terminal         : {self.selected_terminal}")
+            print(f"  Authorization    : {self.selected_authorization}")
+            print(f"  Expiration Date  : {self.selected_expiration_date}")
+            print(f"  Active           : {self.selected_active}")
+            print(f"  Type             : {self.selected_type}")
+            return True
+
+        print("[Client] No credentials found with valid expiration dates.")
+        return False
+
 
 # Usage example
 if __name__ == "__main__":
@@ -282,16 +320,16 @@ if __name__ == "__main__":
             #     # Step 4: Request device configuration
             #     client.request_device_configuration()
 
-            # # Step 3: Select a random credential
-            # if client.select_random_credential(matched_credentials):
-            #     # Step 4: Request device configuration
-            #     client.request_device_configuration()
-
-            # Step 3: Select a credential by ID
-            credential_id = "caf13451-e5d9-492b-9265-85bf9a29b7ad"
-            if client.select_by_id(matched_credentials, credential_id):
+            # Step 3: Select the latest expiration date credential
+            if client.select_by_latest_expiration(matched_credentials):
                 # Step 4: Request device configuration
                 client.request_device_configuration()
+
+            # # Step 3: Select a credential by ID
+            # credential_id = "ed115c28-dc64-4072-8a7b-cae0c94ef2c6"
+            # if client.select_by_id(matched_credentials, credential_id):
+            #     # Step 4: Request device configuration
+            #     client.request_device_configuration()
 
         else:
             print("Failed to match credentials.")
