@@ -55,6 +55,37 @@ async def create_board_message(
     except Exception as e:
         logger.error(f"Error processing message: {e}")
         raise HTTPException(status_code=500, detail="Failed to process message.")
+    
+@app.post("/order/")
+async def get_order_by_id(
+    request: MessageRequest,
+    client: RestaurantClient = Depends(get_restaurant_client),
+):
+    table_id = request.table_id
+    try:
+        # Access the table order from the RestaurantClient
+        table_order = await client.fetch_table_content(table_id)
+
+        return table_order
+
+    except Exception as e:
+        logger.error(f"Error processing message: {e}")
+        raise HTTPException(status_code=500, detail="Failed to process message.")
+    
+@app.get("/tables/")
+async def get_tables(
+    client: RestaurantClient = Depends(get_restaurant_client),
+):
+    try:
+        # Access the table order from the RestaurantClient
+        tables = await client.fetch_tables()
+
+        return tables
+
+    except Exception as e:
+        logger.error(f"Error processing message: {e}")
+        raise HTTPException(status_code=500, detail="Failed to process message.")
+
 
 if __name__ == "__main__":
     import uvicorn
