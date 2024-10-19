@@ -1,16 +1,28 @@
 import socket
 import signal
 import sys
+import time
 
 
 class TCPClient:
+    _instance = None  # Class-level attribute to hold the singleton instance
+
+    def __new__(cls, *args, **kwargs):
+        if cls._instance is None:
+            cls._instance = super(TCPClient, cls).__new__(cls)
+        return cls._instance
+
     def __init__(
         self, source_ip="127.0.0.1", target_ip="192.168.15.100", target_port=8978
     ):
-        self.source_ip = source_ip
-        self.target_ip = target_ip
-        self.target_port = target_port
-        self.client_socket = None
+        # Initialize only once
+        if not hasattr(self, '_initialized'):
+            self.source_ip = source_ip
+            self.target_ip = target_ip
+            self.target_port = target_port
+            self.client_socket = None
+            self.read_timeout = None  # Initialize read_timeout attribute
+            self._initialized = True  # Flag to prevent re-initialization
 
     def connect(self, connect_timeout=None, read_timeout=None):
         """Establish the TCP connection."""
@@ -19,6 +31,7 @@ class TCPClient:
             if connect_timeout is not None:
                 self.client_socket.settimeout(connect_timeout)
             self.client_socket.connect((self.target_ip, self.target_port))
+            self.read_timeout = read_timeout  # Store read_timeout for use in receive_response
             if read_timeout is not None:
                 self.client_socket.settimeout(read_timeout)
             print("[Client] Connected to the server.")
@@ -48,8 +61,16 @@ class TCPClient:
     def receive_response(self):
         """Receive data from the server and return the full response."""
         full_response = ""
+        start_time = time.time()  # Record the start time
+        timeout_duration = self.read_timeout if self.read_timeout else 5  # Default to 5 seconds if not set
         try:
             while True:
+                # Check if timeout has been exceeded
+                if time.time() - start_time > timeout_duration:
+                    print("[Client] Receive operation timed out.")
+                    self.close()
+                    return None
+
                 response = self.client_socket.recv(1024)
                 if not response:
                     print("[Client] Server closed the connection.")
@@ -65,6 +86,7 @@ class TCPClient:
             return full_response
         except socket.timeout:
             print("[Client] Read operation timed out.")
+            self.close()
             return None
         except Exception as e:
             print(f"[Client] Error while receiving data: {e}")
