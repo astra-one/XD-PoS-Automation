@@ -27,7 +27,7 @@ message_builder = MessageBuilder(
     user_id="1",
     app_version="1.0",
     protocol_version="1",
-    token="2a898f1115c259f17ce5d802455fd3e658cbce56",
+    token="3657f04ee0cfd58fe7171aa47900a6d0611702cb",
 )
 
 @app.on_event("startup")
