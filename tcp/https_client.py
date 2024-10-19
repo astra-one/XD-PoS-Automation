@@ -5,21 +5,33 @@ import json
 import uuid
 import random
 
-class HTTPSClient:
-    def __init__(self, base_url="https://myxd1.azurewebsites.net"):
-        self.base_url = base_url
-        self.auth_url = f"{self.base_url}/oauth/token"
-        self.access_token = None
-        self.port = 8978
 
-        # Variables to store selected credential details
-        self.selected_credential_id = None
-        self.selected_username = None
-        self.selected_terminal = None
-        self.selected_authorization = None
-        self.selected_expiration_date = None
-        self.selected_active = None
-        self.selected_type = None
+class HTTPSClient:
+    _instance = None  # Class-level variable to hold the singleton instance
+
+    def __new__(cls, *args, **kwargs):
+        if cls._instance is None:
+            cls._instance = super(HTTPSClient, cls).__new__(cls)
+        return cls._instance
+
+    def __init__(self, base_url="https://myxd1.azurewebsites.net"):
+        # Initialize only if not already initialized
+        if not hasattr(self, "_initialized"):
+            self.base_url = base_url
+            self.auth_url = f"{self.base_url}/oauth/token"
+            self.access_token = None
+            self.port = 8978
+
+            # Variables to store selected credential details
+            self.selected_credential_id = None
+            self.selected_username = None
+            self.selected_terminal = None
+            self.selected_authorization = None
+            self.selected_expiration_date = None
+            self.selected_active = None
+            self.selected_type = None
+
+            self._initialized = True  # Flag to prevent re-initialization
 
     def authenticate(self, username, password, client_id, client_secret):
         """Send the OAuth authentication request and receive the access token."""
@@ -124,7 +136,9 @@ class HTTPSClient:
                 self.selected_active = credential.get("active")
                 self.selected_type = credential.get("type")
 
-                print(f"\n[Client] Active Credential {self.selected_credential_id} selected:")
+                print(
+                    f"\n[Client] Active Credential {self.selected_credential_id} selected:"
+                )
                 print(f"  Username         : {self.selected_username}")
                 print(f"  Terminal         : {self.selected_terminal}")
                 print(f"  Authorization    : {self.selected_authorization}")
@@ -142,6 +156,7 @@ class HTTPSClient:
             print("[Client] Error: No authorization code. Select a credential first.")
             return None
 
+        udp_socket = None
         try:
             # Generate a random device ID (UUID)
             device_id = str(uuid.uuid4())
@@ -152,12 +167,12 @@ class HTTPSClient:
                 "applicationId": 1,  # Example app ID, replace with actual
                 "authorizationCode": self.selected_authorization,
                 "deviceId": device_id,
-                "alias": alias
+                "alias": alias,
             }
 
             # Convert the request to JSON and append the [EOM] marker
             message = json.dumps(device_auth_request) + "[EOM]"
-            message_bytes = message.encode('utf-8')
+            message_bytes = message.encode("utf-8")
 
             # Send the message over UDP
             udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -165,11 +180,11 @@ class HTTPSClient:
             udp_socket.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
 
             # Send the device auth request to the broadcast address (255.255.255.255) on port 8978
-            udp_socket.sendto(message_bytes, ('255.255.255.255', self.port))
+            udp_socket.sendto(message_bytes, ("255.255.255.255", self.port))
 
             # Receive the response
             response_bytes, _ = udp_socket.recvfrom(32768)  # Buffer size
-            response_message = response_bytes.decode('utf-8').replace("[EOM]", "")
+            response_message = response_bytes.decode("utf-8").replace("[EOM]", "")
 
             # Parse the response as a DeviceConfiguration
             device_configuration = json.loads(response_message)
@@ -182,9 +197,13 @@ class HTTPSClient:
             print("[Client] Error: Request timed out.")
         except Exception as e:
             print(f"[Client] Error occurred while requesting device configuration: {e}")
+        finally:
+            if udp_socket:
+                udp_socket.close()
+                print("[Client] UDP socket closed.")
 
         return None
-    
+
     def select_random_credential(self, credentials):
         """Randomly select a credential from the list."""
         if not credentials:
@@ -211,7 +230,7 @@ class HTTPSClient:
         print(f"  Active           : {self.selected_active}")
         print(f"  Type             : {self.selected_type}")
         return True
-    
+
     def select_by_id(self, credentials, credential_id):
         """Select a credential by its ID."""
         for credential in credentials:
