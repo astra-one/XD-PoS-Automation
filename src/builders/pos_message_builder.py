@@ -1,5 +1,7 @@
 import uuid
-
+import base64
+import json
+import time
 
 class MessageBuilder:
     # Retained Constants
@@ -37,6 +39,60 @@ class MessageBuilder:
         self.app_version = app_version
         self.protocol_version = protocol_version
         self.token = token
+
+    def build_close_table_message(self, employee_id: int, table: int, guid: str = None):
+        """
+        Constructs the POSTQUEUE message to close the table.
+
+        Args:
+            employee_id (int): The ID of the employee (same as USER_ID).
+            table (int): The ID of the table being closed.
+            guid (str, optional): A unique identifier for the transaction. If not provided, a new UUID will be generated.
+
+        Returns:
+            str: The constructed POSTQUEUE message string to close the table.
+        """
+        # Use provided GUID or generate a new one
+        if guid is None:
+            guid = str(uuid.uuid4())
+
+        # Construct the queue object for closing the table
+        queue_data = {
+            "appVersion": 0,
+            "employeeId": employee_id,
+            "guid": guid,
+            "id": 5,  # As per your instruction, this is always 5
+            "orders": [],  # No orders to be passed when closing
+            "personsNumber": 0,  # No need for personsNumber
+            "status": 1,  # Status remains 1
+            "table": table,
+            "time": int(time.time() * 1000),  # Current timestamp in milliseconds
+            "Action": 3  # Action is 3 to signify closing the table
+        }
+
+        # Convert the queue object to a JSON string and then base64 encode it
+        queue_json = json.dumps(queue_data)
+        queue_encoded = base64.b64encode(queue_json.encode('utf-8')).decode('utf-8')
+
+        # Generate a unique MESSAGEID
+        message_id = str(uuid.uuid4())
+
+        # Construct the message components
+        message_components = [
+            "POSTQUEUE",
+            self.add_protocol_version(self.protocol_version),
+            self.add_message_parameter("QUEUE", queue_encoded),
+            self.add_message_parameter(self.key_token, self.token),
+            self.add_message_parameter(self.key_message_type, "XDPeople.Entities.PostActionMessage"),
+            self.add_message_parameter(self.key_message_id, message_id),
+            self.new_message_end_of_message,
+        ]
+
+        # Join all components into a single string
+        full_message = "".join(message_components)
+
+        # Return the message
+        return full_message
 
     def build_get_board_content(self, board_id: str, request_type: int = 1):
         """
@@ -77,6 +133,62 @@ class MessageBuilder:
         full_message = "".join(message_components)
 
         # Return the message without encryption
+        return full_message
+    
+    def build_post_queue_message(self, employee_id: int, table: int, orders: list, guid: str = None):
+        """
+        Constructs the POSTQUEUE message with a base64-encoded queue.
+
+        Args:
+            employee_id (int): The ID of the employee (same as USER_ID).
+            table (int): The ID of the table being closed.
+            orders (list): A list of orders for the table.
+            guid (str, optional): A unique identifier for the transaction. If not provided, a new UUID will be generated.
+
+        Returns:
+            str: The constructed POSTQUEUE message string.
+        """
+        # Use provided GUID or generate a new one
+        if guid is None:
+            guid = str(uuid.uuid4())
+
+        # Construct the queue object
+        queue_data = {
+            "appVersion": 0,
+            "employeeId": employee_id,
+            "guid": guid,
+            "id": 4,  # As per your instruction, this is always 4
+            "orders": orders,
+            "personsNumber": 1,  # Assuming personsNumber is always 1
+            "status": 1,  # Status of the order (assuming this is always 1 as per your instruction)
+            "table": table,
+            "tableLocation": [0, 0],  # Assuming table location is [0, 0]
+            "time": int(time.time() * 1000),  # Current timestamp in milliseconds
+            "Action": 1  # Action is always 1
+        }
+
+        # Convert the queue object to a JSON string and then base64 encode it
+        queue_json = json.dumps(queue_data)
+        queue_encoded = base64.b64encode(queue_json.encode('utf-8')).decode('utf-8')
+
+        # Generate a unique MESSAGEID
+        message_id = str(uuid.uuid4())
+
+        # Construct the message components
+        message_components = [
+            self.message_identifier_post_queue,
+            self.add_protocol_version(self.protocol_version),
+            self.add_message_parameter("QUEUE", queue_encoded),
+            self.add_message_parameter(self.key_token, self.token),
+            self.add_message_parameter(self.key_message_type, self.message_type_post_action),
+            self.add_message_parameter(self.key_message_id, message_id),
+            self.new_message_end_of_message,
+        ]
+
+        # Join all components into a single string
+        full_message = "".join(message_components)
+
+        # Return the message
         return full_message
 
     def build_get_data_list(

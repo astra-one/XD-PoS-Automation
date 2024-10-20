@@ -97,6 +97,94 @@ class RestaurantClient:
             token=self.TOKEN
         )
         return message_builder.build_get_board_content(board_id=board_id)
+    
+    async def post_queue(self, table_id: int):
+        """
+        Send a POSTQUEUE message to close a table's order.
+        
+        Args:
+            table_id (int): The ID of the table.
+        
+        Returns:
+            str: The response from the server.
+        """
+        try:
+            # Fetch the table content, which contains the orders
+            table_content = await self.fetch_table_content(table_id)
+
+            # Extract the orders from the table content
+            orders = table_content.get('content', [])
+            if not orders:
+                raise HTTPException(status_code=404, detail="No orders found for the table.")
+
+            # Build the POSTQUEUE message
+            message = self._build_post_queue_message(table_id, orders)
+
+            # Send the message to the server and get the response
+            response = await self._send_message(message)
+
+            if response is None:
+                raise HTTPException(status_code=500, detail="Failed to receive response from the TCP server")
+
+            return response
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Failed to post queue: {str(e)}")
+
+    def _build_post_queue_message(self, table_id: int, orders: list) -> str:
+        """
+        Wrapper for building the POSTQUEUE message using the MessageBuilder.
+        """
+        message_builder = MessageBuilder(
+            user_id=self.USER_ID,
+            app_version=self.APP_VERSION,
+            protocol_version=self.PROTOCOL_VERSION,
+            token=self.TOKEN
+        )
+        return message_builder.build_post_queue_message(
+            employee_id=int(self.USER_ID),
+            table=table_id,
+            orders=orders
+        )
+    
+    async def close_table(self, table_id: int):
+        """
+        Send a POSTQUEUE message to close the table after payment.
+
+        Args:
+            table_id (int): The ID of the table to be closed.
+
+        Returns:
+            str: The response from the server.
+        """
+        try:
+            # Build the close table message
+            message = self._build_close_table_message(table_id)
+
+            # Send the message to the server and get the response
+            response = await self._send_message(message)
+
+            if response is None:
+                raise HTTPException(status_code=500, detail="Failed to receive response from the TCP server")
+
+            return response
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Failed to close table: {str(e)}")
+        
+    def _build_close_table_message(self, table_id: int) -> str:
+        """
+        Wrapper for building the POSTQUEUE message using the MessageBuilder to close the table.
+        """
+        message_builder = MessageBuilder(
+            user_id=self.USER_ID,
+            app_version=self.APP_VERSION,
+            protocol_version=self.PROTOCOL_VERSION,
+            token=self.TOKEN
+        )
+        return message_builder.build_close_table_message(
+            employee_id=int(self.USER_ID),
+            table=table_id
+        )
+
 
     @staticmethod
     def _extract_encoded_object(response: str) -> str:
