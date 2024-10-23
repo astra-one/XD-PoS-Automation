@@ -36,3 +36,27 @@ def extract_and_decode_board_info(response: str) -> dict:
         raise ValueError(f"Failed to decode or parse JSON: {e}")
     except Exception as e:
         raise ValueError(f"General error during decoding: {e}")
+    
+def extract_encoded_object(response: str) -> str:
+    """
+    Extracts the Base64 encoded portion of the response after '[NP]OBJECT[EQ]'.
+    
+    Args:
+        response (str): The full server response.
+    
+    Returns:
+        str: The Base64 encoded object part.
+    """
+    # Find the part after "[NP]OBJECT[EQ]"
+    object_start = response.find("[NP]OBJECT[EQ]")
+    if object_start == -1:
+        raise ValueError("No OBJECT field found in the response")
+
+    # Extract everything after "[NP]OBJECT[EQ]"
+    encoded_object = response[object_start + len("[NP]OBJECT[EQ]"):]
+    # Find the next "[NP]" or "[EOM]" which marks the end of the OBJECT field
+    object_end = encoded_object.find("[NP]") if "[NP]" in encoded_object else encoded_object.find("[EOM]")
+    if object_end == -1:
+        raise ValueError("End of OBJECT field not found in the response")
+    # Return the Base64 string between the delimiters
+    return encoded_object[:object_end].strip()

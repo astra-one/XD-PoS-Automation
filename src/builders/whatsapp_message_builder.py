@@ -1,4 +1,4 @@
-from models import ComandaData
+from models.entity_models import ComandaData
 from langchain_openai import ChatOpenAI
 from prompt import message_enhancer_prompt
 

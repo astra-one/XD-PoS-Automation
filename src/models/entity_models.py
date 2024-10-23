@@ -1,5 +1,5 @@
 from typing import List, Optional
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 class Table(BaseModel):
     id: int
@@ -38,20 +38,9 @@ class BoardResponse(BaseModel):
     total: float
     globalDiscount: float
 
-
-    # Define your BoardRequest model
-class BoardRequest(BaseModel):
-    board_id: str
-
-# Define your AuthenticationRequest model
-class AuthenticationRequest(BaseModel):
-    username: str
-    password: str
-    client_id: str
-    client_secret: str = ""  # Default to an empty string like in your Java code
-
 class Product(BaseModel):
     id: Optional[int]
     name: Optional[str]
     parentId: Optional[int] = None  # Default to None if not provided
     visible: Optional[bool] = None  # Default to None if not provided
+
