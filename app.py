@@ -1,9 +1,11 @@
-import os
+import configparser
 from fastapi import FastAPI, Depends, HTTPException
 from src.models.request_models import MessageRequest
 from src.clients.restaurant_client import RestaurantClient
+from src.clients.mock_restaurant_client import RestaurantMockClient  # Import the mock client
 from src.order_processor.order_chain import OrderProcessorChain
 import logging
+import os
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -11,16 +13,26 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI()
 
+def read_config_file(filename):
+    config = configparser.ConfigParser()
+    config.read(filename)
+    return config
 
-# Dependency that will create and return the RestaurantClient instance
-def get_restaurant_client() -> RestaurantClient:
-    return RestaurantClient()
-
+# Dependency that will create and return the RestaurantClient or RestaurantMockClient instance
+def get_restaurant_client():
+    config = read_config_file('config.ini')["Settings"]
+    APP_MODE = config["app_mode"]
+    print(APP_MODE)
+    if APP_MODE == "dev":
+        logger.info("Running in development mode. Using RestaurantMockClient.")
+        return RestaurantMockClient()
+    else:
+        logger.info("Running in production mode. Using RestaurantClient.")
+        return RestaurantClient()
 
 # Dependency that will create and return the OrderProcessorChain instance
 def get_order_processor_chain() -> OrderProcessorChain:
     return OrderProcessorChain()
-
 
 @app.post("/message/")
 async def create_board_message(
@@ -59,7 +71,6 @@ async def create_board_message(
         logger.error(f"Error processing message: {e}")
         raise HTTPException(status_code=500, detail="Failed to process message.")
 
-
 @app.post("/order/")
 async def get_order_by_id(
     request: MessageRequest,
@@ -79,7 +90,6 @@ async def get_order_by_id(
         logger.error(f"Error processing message: {e}")
         raise HTTPException(status_code=500, detail="Failed to process message.")
 
-
 @app.get("/tables/")
 async def get_tables(
     client: RestaurantClient = Depends(get_restaurant_client),
@@ -96,7 +106,6 @@ async def get_tables(
     except Exception as e:
         logger.error(f"Error fetching tables: {e}")
         raise HTTPException(status_code=500, detail="Failed to fetch tables.")
-
 
 @app.post("/payment/")
 async def set_payment_status(
@@ -128,7 +137,6 @@ async def set_payment_status(
         logger.error(f"Error setting payment status for table {table_id}: {e}")
         raise HTTPException(status_code=500, detail="Failed to set payment status.")
 
-
 @app.post("/close/")
 async def close_table_endpoint(
     request: MessageRequest,
@@ -158,7 +166,6 @@ async def close_table_endpoint(
     except Exception as e:
         logger.error(f"Error closing table {table_id}: {e}")
         raise HTTPException(status_code=500, detail="Failed to close table.")
-
 
 if __name__ == "__main__":
     import uvicorn

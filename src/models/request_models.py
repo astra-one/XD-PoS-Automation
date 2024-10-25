@@ -12,4 +12,4 @@ class AuthenticationRequest(BaseModel):
     client_secret: str = ""  # Default to an empty string like in your Java code
 
 class MessageRequest(BaseModel):
-    table_id: str
+    table_id: int
