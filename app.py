@@ -1,5 +1,6 @@
 import configparser
 from fastapi import FastAPI, Depends, HTTPException
+from starlette.middleware.cors import CORSMiddleware
 from src.models.request_models import MessageRequest
 from src.clients.restaurant_client import RestaurantClient
 from src.clients.mock_restaurant_client import RestaurantMockClient  # Import the mock client
@@ -13,10 +14,21 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI()
 
+# noinspection PyTypeChecker
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Use ["http://localhost:3000"] for specific domains in production
+    allow_credentials=True,
+    allow_methods=["*"],  # Allow all HTTP methods
+    allow_headers=["*"],  # Allow all headers
+)
+
+
 def read_config_file(filename):
     config = configparser.ConfigParser()
     config.read(filename)
     return config
+
 
 # Dependency that will create and return the RestaurantClient or RestaurantMockClient instance
 def get_restaurant_client():
@@ -30,15 +42,17 @@ def get_restaurant_client():
         logger.info("Running in production mode. Using RestaurantClient.")
         return RestaurantClient()
 
+
 # Dependency that will create and return the OrderProcessorChain instance
 def get_order_processor_chain() -> OrderProcessorChain:
     return OrderProcessorChain()
 
+
 @app.post("/message/")
 async def create_board_message(
-    request: MessageRequest,
-    client: RestaurantClient = Depends(get_restaurant_client),
-    order_processor: OrderProcessorChain = Depends(get_order_processor_chain),
+        request: MessageRequest,
+        client: RestaurantClient = Depends(get_restaurant_client),
+        order_processor: OrderProcessorChain = Depends(get_order_processor_chain),
 ):
     """
     Endpoint to create a board message by fetching table content,
@@ -71,10 +85,11 @@ async def create_board_message(
         logger.error(f"Error processing message: {e}")
         raise HTTPException(status_code=500, detail="Failed to process message.")
 
+
 @app.post("/order/")
 async def get_order_by_id(
-    request: MessageRequest,
-    client: RestaurantClient = Depends(get_restaurant_client),
+        request: MessageRequest,
+        client: RestaurantClient = Depends(get_restaurant_client),
 ):
     """
     Endpoint to retrieve the order details for a specific table.
@@ -90,9 +105,10 @@ async def get_order_by_id(
         logger.error(f"Error processing message: {e}")
         raise HTTPException(status_code=500, detail="Failed to process message.")
 
+
 @app.get("/tables/")
 async def get_tables(
-    client: RestaurantClient = Depends(get_restaurant_client),
+        client: RestaurantClient = Depends(get_restaurant_client),
 ):
     """
     Endpoint to retrieve a list of all tables.
@@ -107,10 +123,11 @@ async def get_tables(
         logger.error(f"Error fetching tables: {e}")
         raise HTTPException(status_code=500, detail="Failed to fetch tables.")
 
+
 @app.post("/payment/")
 async def set_payment_status(
-    request: MessageRequest,
-    client: RestaurantClient = Depends(get_restaurant_client),
+        request: MessageRequest,
+        client: RestaurantClient = Depends(get_restaurant_client),
 ):
     """
     Endpoint to set the payment status for a specific table.
@@ -137,10 +154,11 @@ async def set_payment_status(
         logger.error(f"Error setting payment status for table {table_id}: {e}")
         raise HTTPException(status_code=500, detail="Failed to set payment status.")
 
+
 @app.post("/close/")
 async def close_table_endpoint(
-    request: MessageRequest,
-    client: RestaurantClient = Depends(get_restaurant_client),
+        request: MessageRequest,
+        client: RestaurantClient = Depends(get_restaurant_client),
 ):
     """
     Endpoint to close a specific table after payment.
@@ -166,6 +184,7 @@ async def close_table_endpoint(
     except Exception as e:
         logger.error(f"Error closing table {table_id}: {e}")
         raise HTTPException(status_code=500, detail="Failed to close table.")
+
 
 if __name__ == "__main__":
     import uvicorn
