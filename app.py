@@ -3,7 +3,9 @@ from fastapi import FastAPI, Depends, HTTPException
 from starlette.middleware.cors import CORSMiddleware
 from src.models.request_models import MessageRequest
 from src.clients.restaurant_client import RestaurantClient
-from src.clients.mock_restaurant_client import RestaurantMockClient  # Import the mock client
+from src.clients.mock_restaurant_client import (
+    RestaurantMockClient,
+)  # Import the mock client
 from src.order_processor.order_chain import OrderProcessorChain
 import logging
 import os
@@ -17,7 +19,9 @@ app = FastAPI()
 # noinspection PyTypeChecker
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Use ["http://localhost:3000"] for specific domains in production
+    allow_origins=[
+        "*"
+    ],  # Use ["http://localhost:3000"] for specific domains in production
     allow_credentials=True,
     allow_methods=["*"],  # Allow all HTTP methods
     allow_headers=["*"],  # Allow all headers
@@ -32,7 +36,7 @@ def read_config_file(filename):
 
 # Dependency that will create and return the RestaurantClient or RestaurantMockClient instance
 def get_restaurant_client():
-    config = read_config_file('config.ini')["Settings"]
+    config = read_config_file("config.ini")["Settings"]
     APP_MODE = config["app_mode"]
     print(APP_MODE)
     if APP_MODE == "dev":
@@ -50,9 +54,9 @@ def get_order_processor_chain() -> OrderProcessorChain:
 
 @app.post("/message/")
 async def create_board_message(
-        request: MessageRequest,
-        client: RestaurantClient = Depends(get_restaurant_client),
-        order_processor: OrderProcessorChain = Depends(get_order_processor_chain),
+    request: MessageRequest,
+    client: RestaurantClient = Depends(get_restaurant_client),
+    order_processor: OrderProcessorChain = Depends(get_order_processor_chain),
 ):
     """
     Endpoint to create a board message by fetching table content,
@@ -62,6 +66,9 @@ async def create_board_message(
     try:
         # Fetch the table order from the RestaurantClient
         table_order = await client.fetch_table_content(table_id)
+
+        if not table_order["content"]:
+            raise HTTPException(status_code=404, detail="Table content not found.")
 
         # Create the file name based on the table_id
         file_name = f"comanda_{table_id}.txt"
@@ -79,7 +86,10 @@ async def create_board_message(
             formatted_order += line
 
         # Process the formatted order
-        return await order_processor.main(formatted_order, file_path)
+        print("FUDEU")
+        order = await order_processor.main(formatted_order, file_path)
+        print("CHEGOU AQUI")
+        return order
 
     except Exception as e:
         logger.error(f"Error processing message: {e}")
@@ -88,8 +98,8 @@ async def create_board_message(
 
 @app.post("/order/")
 async def get_order_by_id(
-        request: MessageRequest,
-        client: RestaurantClient = Depends(get_restaurant_client),
+    request: MessageRequest,
+    client: RestaurantClient = Depends(get_restaurant_client),
 ):
     """
     Endpoint to retrieve the order details for a specific table.
@@ -108,7 +118,7 @@ async def get_order_by_id(
 
 @app.get("/tables/")
 async def get_tables(
-        client: RestaurantClient = Depends(get_restaurant_client),
+    client: RestaurantClient = Depends(get_restaurant_client),
 ):
     """
     Endpoint to retrieve a list of all tables.
@@ -126,16 +136,16 @@ async def get_tables(
 
 @app.post("/payment/")
 async def set_payment_status(
-        request: MessageRequest,
-        client: RestaurantClient = Depends(get_restaurant_client),
+    request: MessageRequest,
+    client: RestaurantClient = Depends(get_restaurant_client),
 ):
     """
     Endpoint to set the payment status for a specific table.
-    
+
     Args:
         request (MessageRequest): The request body containing the table_id.
         client (RestaurantClient): The RestaurantClient instance.
-    
+
     Returns:
         dict: A success message with the server response.
     """
@@ -148,7 +158,9 @@ async def set_payment_status(
 
     except HTTPException as http_exc:
         # Re-raise HTTP exceptions to maintain consistent error responses
-        logger.error(f"HTTP error setting payment status for table {table_id}: {http_exc.detail}")
+        logger.error(
+            f"HTTP error setting payment status for table {table_id}: {http_exc.detail}"
+        )
         raise http_exc
     except Exception as e:
         logger.error(f"Error setting payment status for table {table_id}: {e}")
@@ -157,16 +169,16 @@ async def set_payment_status(
 
 @app.post("/close/")
 async def close_table_endpoint(
-        request: MessageRequest,
-        client: RestaurantClient = Depends(get_restaurant_client),
+    request: MessageRequest,
+    client: RestaurantClient = Depends(get_restaurant_client),
 ):
     """
     Endpoint to close a specific table after payment.
-    
+
     Args:
         request (MessageRequest): The request body containing the table_id.
         client (RestaurantClient): The RestaurantClient instance.
-    
+
     Returns:
         dict: A success message with the server response.
     """
