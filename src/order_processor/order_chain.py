@@ -147,7 +147,7 @@ class OrderProcessorChain:
         with open(output_file, "w", encoding="utf-8") as f:
             f.write(enhanced_message)
     
-        return message
+        return enhanced_message
 
     async def main(self, comanda_text: str, output_file: str) -> str:
         """Main function to execute the chain of tasks with a given comanda string."""
@@ -170,7 +170,14 @@ class OrderProcessorChain:
         print(f"Total com desconto: R$ {self.comanda_data.valor_total_desconto:.2f}")
 
         # Step 3: Build and save the message to a file
-        return await self.build_and_save_message(output_file)
+        processed_message =  await self.build_and_save_message(output_file)
+        return {
+            "status": "Message processed successfully",
+            "message": processed_message,
+            "details": {
+                "total": self.comanda_data.valor_total_bruto,
+            }
+        }
 
 
 if __name__ == "__main__":
