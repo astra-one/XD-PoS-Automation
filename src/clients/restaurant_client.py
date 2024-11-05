@@ -17,7 +17,7 @@ class RestaurantClient:
     USER_ID: str = "1"
     APP_VERSION: str = "1.0"
     PROTOCOL_VERSION: str = "1"
-    TOKEN: str = "f460a145dceae95e8b39c5afa110e820a7f1d8ff"
+    TOKEN: str = "fed3a2d9c43edded3d54640025a96e4c7277ce05"
     LIMIT: int = 5000
 
     def __new__(cls):
@@ -90,6 +90,11 @@ class RestaurantClient:
             return table_content
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Failed to fetch table content: {str(e)}")
+        
+    def _extract_and_decode_field(self, response: str, field_identifier: str) -> Dict:
+        """Extract and decode a Base64 encoded field from the response."""
+        encoded_field = self._extract_field(response, field_identifier)
+        return self._decode_base64_json(encoded_field)
 
     def _enrich_table_content_with_product_names(self, table_content: Dict):
         """Enrich the table content with product names using the product cache."""
