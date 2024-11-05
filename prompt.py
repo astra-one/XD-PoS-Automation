@@ -7,7 +7,7 @@ pedido_template = {
 }
 
 comanda_template = {
-    "numero_comanda": "String",
+    "numero_comanda": "Int",
     "pedidos": [pedido_template],
 }
 
