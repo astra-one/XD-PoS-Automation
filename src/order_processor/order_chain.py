@@ -16,7 +16,7 @@ class Pedido(BaseModel):
     preco_unitario: float
 
 class ComandaData(BaseModel):
-    numero_comanda: int
+    numero_comanda: int 
     porcentagem_desconto: int = 2.0
     porcentagem_taxa_servico: int = 11.0
     valor_pratos: float = Field(default=0.0)
