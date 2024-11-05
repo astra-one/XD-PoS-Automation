@@ -9,6 +9,12 @@ from src.clients.mock_restaurant_client import (
 from src.order_processor.order_chain import OrderProcessorChain
 import logging
 import os
+import pytesseract
+import base64
+import io
+from PIL import Image
+import tempfile
+from pdf2image import convert_from_path
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -52,6 +58,56 @@ def get_order_processor_chain() -> OrderProcessorChain:
     return OrderProcessorChain()
 
 
+@app.post("/extract_text_from_image/")
+async def extract_text_from_image(request: dict):
+    """
+    Endpoint to receive a base64 PDF or image, convert it using OCR, and return the extracted text.
+
+    Args:
+        request (dict): The request body containing the base64 encoded image or PDF.
+
+    Returns:
+        dict: The extracted text.
+    """
+    try:
+        # Decode the base64 data
+        image_data = base64.b64decode(request["image_base64"])
+
+        # Determine if the data is a PDF or an image
+        if request["image_base64"].startswith(
+            "JVBERi0"
+        ):  # PDF files typically start with "JVBERi0"
+            # Save the PDF to a temporary file
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as temp_pdf:
+                temp_pdf.write(image_data)
+                temp_pdf_path = temp_pdf.name
+
+            # Convert each page of the PDF to an image
+            extracted_text = ""
+            doc = convert_from_path(temp_pdf_path, dpi=300)
+
+            # Process each page with OCR
+            for page_number, page_data in enumerate(doc):
+                text = pytesseract.image_to_string(page_data)
+                extracted_text += f"Page {page_number + 1}:\n{text}\n"
+
+            # Clean up the temporary file
+            os.remove(temp_pdf_path)
+
+        else:
+            # Handle as a standard image
+            image = Image.open(io.BytesIO(image_data))
+            extracted_text = pytesseract.image_to_string(image)
+
+        return {"extracted_text": extracted_text}
+
+    except Exception as e:
+        logger.error(f"Error extracting text: {e}")
+        raise HTTPException(
+            status_code=500, detail="Failed to extract text from image or PDF."
+        )
+
+
 @app.post("/message/")
 async def create_board_message(
     request: MessageRequest,
@@ -64,6 +120,10 @@ async def create_board_message(
     """
     table_id = request.table_id
     try:
+        # Valida se table_id é um inteiro
+        if not isinstance(table_id, int):
+            raise HTTPException(status_code=400, detail="table_id deve ser um número inteiro.")
+
         # Fetch the table order from the RestaurantClient
         table_order = await client.fetch_table_content(table_id)
 
@@ -86,9 +146,7 @@ async def create_board_message(
             formatted_order += line
 
         # Process the formatted order
-        print("FUDEU")
         order = await order_processor.main(formatted_order, file_path)
-        print("CHEGOU AQUI")
         return order
 
     except Exception as e:
