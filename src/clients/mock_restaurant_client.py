@@ -6,11 +6,11 @@ from fastapi import HTTPException
 from faker import Faker
 from ..models.entity_models import Product, Table
 
-fake = Faker('pt_BR')
+fake = Faker("pt_BR")
 
 
 class RestaurantMockClient:
-    _instance: Optional['RestaurantMockClient'] = None
+    _instance: Optional["RestaurantMockClient"] = None
 
     def __new__(cls):
         if cls._instance is None:
@@ -47,11 +47,14 @@ class RestaurantMockClient:
             {"id": 2020, "name": "Quindim Tradicional"},
         ]
 
-        return {item["id"]: Product(id=item["id"], name=item["name"]) for item in predefined_items}
+        return {
+            item["id"]: Product(id=item["id"], name=item["name"])
+            for item in predefined_items
+        }
 
     def _load_mock_tables(self) -> List[Table]:
         """Initialize 500 mock tables with random statuses and attributes."""
-        statuses = [0, 1, 2]  # 0: Available, 1: Occupied, 2: Reserved
+        statuses = [1, 1, 2]  # 0: Available, 1: Occupied, 2: Reserved
         mock_tables = []
         for i in range(1, 100):  # 500 tables
             table = Table(
@@ -61,7 +64,7 @@ class RestaurantMockClient:
                 lockDescription=None,
                 inactive=False,
                 freeTable=random.choice([True, False]),
-                initialUser=random.randint(0, 20)
+                initialUser=random.randint(0, 20),
             )
             mock_tables.append(table)
         return mock_tables
@@ -76,7 +79,7 @@ class RestaurantMockClient:
         Returns:
             Dict: Mocked table content.
         """
-        if table_id < 1 or table_id > len(self.tables):
+        if not isinstance(table_id, int) or table_id < 1 or table_id > len(self.tables):
             raise HTTPException(status_code=404, detail="Mesa não encontrada.")
         table = self.tables[table_id - 1]
         table_status = table.status
@@ -88,7 +91,7 @@ class RestaurantMockClient:
                 "tableLocation": None,
                 "content": [],
                 "total": 0.0,
-                "globalDiscount": 0.0
+                "globalDiscount": 0.0,
             }
 
         num_orders = random.randint(1, 10)
@@ -115,7 +118,7 @@ class RestaurantMockClient:
                 "lineDiscount": round(random.uniform(0.0, 10.0), 2),
                 "completed": random.choice([True, False]),
                 "parentGuid": "00000000-0000-0000-0000-000000000000",
-                "itemName": product.name
+                "itemName": product.name,
             }
             order_content.append(order)
             total += total_price
@@ -128,9 +131,11 @@ class RestaurantMockClient:
             "tableLocation": fake.address() if random.choice([True, False]) else None,
             "content": order_content,
             "total": round(total, 2),
-            "globalDiscount": round(random.uniform(0.0, 20.0), 2)
+            "globalDiscount": round(random.uniform(0.0, 20.0), 2),
         }
-        await asyncio.sleep(random.uniform(0.05, 0.2))  # Simulate asynchronous operation
+        await asyncio.sleep(
+            random.uniform(0.05, 0.2)
+        )  # Simulate asynchronous operation
         print("Table content fetched:", mock_table_content)
         return mock_table_content
 
@@ -141,7 +146,9 @@ class RestaurantMockClient:
         Returns:
             List[Table]: A list of mocked Table objects.
         """
-        await asyncio.sleep(random.uniform(0.05, 0.2))  # Simulate asynchronous operation
+        await asyncio.sleep(
+            random.uniform(0.05, 0.2)
+        )  # Simulate asynchronous operation
         return self.tables
 
     async def post_queue(self, table_id: int) -> str:
@@ -160,7 +167,9 @@ class RestaurantMockClient:
         # Simulate updating table status to Reserved
         self.tables[table_id - 1].status = 2  # Reserved
         self.tables[table_id - 1].freeTable = False
-        await asyncio.sleep(random.uniform(0.05, 0.2))  # Simulate asynchronous operation
+        await asyncio.sleep(
+            random.uniform(0.05, 0.2)
+        )  # Simulate asynchronous operation
         return "Fila postada com sucesso."
 
     async def close_table(self, table_id: int) -> str:
@@ -179,5 +188,7 @@ class RestaurantMockClient:
         # Simulate closing the table
         self.tables[table_id - 1].status = 0  # Available
         self.tables[table_id - 1].freeTable = True
-        await asyncio.sleep(random.uniform(0.05, 0.2))  # Simulate asynchronous operation
+        await asyncio.sleep(
+            random.uniform(0.05, 0.2)
+        )  # Simulate asynchronous operation
         return "Mesa fechada com sucesso."
