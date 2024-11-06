@@ -1,26 +1,24 @@
 import asyncio
 import uuid
 import random
-from typing import Dict, List, Optional
+import time
+from typing import Dict, List
 from fastapi import HTTPException
 from faker import Faker
 from ..models.entity_models import Product, Table
+from .token_manager import TokenManager  # Assuming token_manager is in the same package
+import logging
 
+# Configure logging
+logger = logging.getLogger(__name__)
 fake = Faker("pt_BR")
 
 
 class RestaurantMockClient:
-    _instance: Optional["RestaurantMockClient"] = None
-
-    def __new__(cls):
-        if cls._instance is None:
-            cls._instance = super(RestaurantMockClient, cls).__new__(cls)
-            cls._instance.products = cls._instance._load_mock_products()
-            cls._instance.tables = cls._instance._load_mock_tables()
-        return cls._instance
-
-    def __init__(self):
-        pass
+    def __init__(self, token_manager: TokenManager):
+        self.token_manager = token_manager
+        self.products = self._load_mock_products()
+        self.tables = self._load_mock_tables()
 
     def _load_mock_products(self) -> Dict[int, Product]:
         """Initialize a large set of mock products with realistic Portuguese names and unique IDs."""
@@ -53,10 +51,10 @@ class RestaurantMockClient:
         }
 
     def _load_mock_tables(self) -> List[Table]:
-        """Initialize 500 mock tables with random statuses and attributes."""
+        """Initialize 100 mock tables with random statuses and attributes."""
         statuses = [1, 1, 2]  # 0: Available, 1: Occupied, 2: Reserved
         mock_tables = []
-        for i in range(1, 100):  # 500 tables
+        for i in range(1, 100):  # 100 tables
             table = Table(
                 id=i,
                 name=str(i),
@@ -79,6 +77,12 @@ class RestaurantMockClient:
         Returns:
             Dict: Mocked table content.
         """
+        # Simulate token validation
+        await self.token_manager.get_token()
+        if self.token_manager.is_token_expired():
+            logger.warning("Token expired.")
+            raise HTTPException(status_code=401, detail="Token expired")
+
         if not isinstance(table_id, int) or table_id < 1 or table_id > len(self.tables):
             raise HTTPException(status_code=404, detail="Mesa não encontrada.")
         table = self.tables[table_id - 1]
@@ -103,7 +107,7 @@ class RestaurantMockClient:
             price = round(random.uniform(20.0, 100.0), 2)
             total_price = round(quantity * price, 2)
             order = {
-                "itemId": product.id,  # Changed from str(product.id) to int
+                "itemId": product.id,
                 "itemType": random.choice([0, 1, 2, 3]),
                 "parentPosition": -1,
                 "quantity": float(quantity),
@@ -111,7 +115,7 @@ class RestaurantMockClient:
                 "additionalInfo": fake.sentence(nb_words=6),
                 "guid": str(uuid.uuid4()),
                 "employee": random.randint(1, 50),
-                "time": int(asyncio.get_event_loop().time() * 1000),
+                "time": int(time.time() * 1000),
                 "lineLevel": 0,
                 "ratio": random.choice([0, 1]),
                 "total": total_price,
@@ -122,8 +126,6 @@ class RestaurantMockClient:
             }
             order_content.append(order)
             total += total_price
-
-        print("Salve")
 
         mock_table_content = {
             "id": table_id,
@@ -136,7 +138,7 @@ class RestaurantMockClient:
         await asyncio.sleep(
             random.uniform(0.05, 0.2)
         )  # Simulate asynchronous operation
-        print("Table content fetched:", mock_table_content)
+        logger.debug(f"Table content fetched: {mock_table_content}")
         return mock_table_content
 
     async def fetch_tables(self) -> List[Table]:
@@ -146,9 +148,16 @@ class RestaurantMockClient:
         Returns:
             List[Table]: A list of mocked Table objects.
         """
+        # Simulate token validation
+        await self.token_manager.get_token()
+        if self.token_manager.is_token_expired():
+            logger.warning("Token expired.")
+            raise HTTPException(status_code=401, detail="Token expired")
+
         await asyncio.sleep(
             random.uniform(0.05, 0.2)
         )  # Simulate asynchronous operation
+        logger.debug("Tables fetched.")
         return self.tables
 
     async def post_queue(self, table_id: int) -> str:
@@ -161,6 +170,12 @@ class RestaurantMockClient:
         Returns:
             str: Success message.
         """
+        # Simulate token validation
+        await self.token_manager.get_token()
+        if self.token_manager.is_token_expired():
+            logger.warning("Token expired.")
+            raise HTTPException(status_code=401, detail="Token expired")
+
         if table_id < 1 or table_id > len(self.tables):
             raise HTTPException(status_code=404, detail="Mesa não encontrada.")
 
@@ -170,6 +185,7 @@ class RestaurantMockClient:
         await asyncio.sleep(
             random.uniform(0.05, 0.2)
         )  # Simulate asynchronous operation
+        logger.info(f"Queue posted for table {table_id}.")
         return "Fila postada com sucesso."
 
     async def close_table(self, table_id: int) -> str:
@@ -182,6 +198,12 @@ class RestaurantMockClient:
         Returns:
             str: Success message.
         """
+        # Simulate token validation
+        await self.token_manager.get_token()
+        if self.token_manager.is_token_expired():
+            logger.warning("Token expired.")
+            raise HTTPException(status_code=401, detail="Token expired")
+
         if table_id < 1 or table_id > len(self.tables):
             raise HTTPException(status_code=404, detail="Mesa não encontrada.")
 
@@ -191,4 +213,5 @@ class RestaurantMockClient:
         await asyncio.sleep(
             random.uniform(0.05, 0.2)
         )  # Simulate asynchronous operation
+        logger.info(f"Table {table_id} closed.")
         return "Mesa fechada com sucesso."
