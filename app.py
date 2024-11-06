@@ -1,6 +1,9 @@
 import configparser
-from fastapi import FastAPI, Depends, HTTPException
+from fastapi import FastAPI, Depends, HTTPException, Request
+from fastapi.responses import JSONResponse
 from starlette.middleware.cors import CORSMiddleware
+from src.clients.token_manager import TokenManager
+from src.errors.authentication_error import AuthenticationError
 from src.models.request_models import MessageRequest
 from src.clients.restaurant_client import RestaurantClient
 from src.clients.mock_restaurant_client import (
@@ -39,23 +42,44 @@ def read_config_file(filename):
     config.read(filename)
     return config
 
+def get_token_manager():
+    config = read_config_file("config.ini")["Settings"]
+    APP_MODE = config.get("app_mode", "prod")  # Default para 'prod' se não especificado
+    use_mock = APP_MODE.lower() == "dev"
+    token_manager = TokenManager(use_mock=use_mock)
+    return token_manager
+
 
 # Dependency that will create and return the RestaurantClient or RestaurantMockClient instance
-def get_restaurant_client():
-    config = read_config_file("config.ini")["Settings"]
-    APP_MODE = config["app_mode"]
-    print(APP_MODE)
-    if APP_MODE == "dev":
-        logger.info("Running in development mode. Using RestaurantMockClient.")
-        return RestaurantMockClient()
+def get_restaurant_client(token_manager: TokenManager = Depends(get_token_manager)):
+    if token_manager.use_mock:
+        logger.info("Rodando no modo desenvolvimento. Usando RestaurantMockClient.")
+        return RestaurantMockClient(token_manager=token_manager)
     else:
-        logger.info("Running in production mode. Using RestaurantClient.")
-        return RestaurantClient()
+        logger.info("Rodando no modo produção. Usando RestaurantClient.")
+        return RestaurantClient(token_manager=token_manager)
+
 
 
 # Dependency that will create and return the OrderProcessorChain instance
 def get_order_processor_chain() -> OrderProcessorChain:
     return OrderProcessorChain()
+
+
+def handle_request_exception(e: Exception):
+    if isinstance(e, AuthenticationError):
+        logger.error(f"Authentication error: {e}")
+        raise HTTPException(
+            status_code=401, detail="Smart Connect Authentication Error"
+        )
+    else:
+        logger.error(f"Unhandled exception: {e}")
+        raise HTTPException(status_code=500, detail="An unexpected error occurred.")
+
+
+@app.get("/is_authenticated/")
+async def is_authenticated(token_manager: TokenManager = Depends(get_token_manager)):
+    return {"is_authenticated": await token_manager.is_authenticated()}
 
 
 @app.post("/extract_text_from_image/")
@@ -122,7 +146,9 @@ async def create_board_message(
     try:
         # Valida se table_id é um inteiro
         if not isinstance(table_id, int):
-            raise HTTPException(status_code=400, detail="table_id deve ser um número inteiro.")
+            raise HTTPException(
+                status_code=400, detail="table_id deve ser um número inteiro."
+            )
 
         # Fetch the table order from the RestaurantClient
         table_order = await client.fetch_table_content(table_id)
@@ -150,8 +176,7 @@ async def create_board_message(
         return order
 
     except Exception as e:
-        logger.error(f"Error processing message: {e}")
-        raise HTTPException(status_code=500, detail="Failed to process message.")
+        handle_request_exception(e)
 
 
 @app.post("/order/")
@@ -170,8 +195,7 @@ async def get_order_by_id(
         return table_order
 
     except Exception as e:
-        logger.error(f"Error processing message: {e}")
-        raise HTTPException(status_code=500, detail="Failed to process message.")
+        handle_request_exception(e)
 
 
 @app.get("/tables/")
@@ -188,8 +212,7 @@ async def get_tables(
         return tables
 
     except Exception as e:
-        logger.error(f"Error fetching tables: {e}")
-        raise HTTPException(status_code=500, detail="Failed to fetch tables.")
+        handle_request_exception(e)
 
 
 @app.post("/payment/")
@@ -221,8 +244,7 @@ async def set_payment_status(
         )
         raise http_exc
     except Exception as e:
-        logger.error(f"Error setting payment status for table {table_id}: {e}")
-        raise HTTPException(status_code=500, detail="Failed to set payment status.")
+        handle_request_exception(e)
 
 
 @app.post("/close/")
@@ -252,8 +274,7 @@ async def close_table_endpoint(
         logger.error(f"HTTP error closing table {table_id}: {http_exc.detail}")
         raise http_exc
     except Exception as e:
-        logger.error(f"Error closing table {table_id}: {e}")
-        raise HTTPException(status_code=500, detail="Failed to close table.")
+        handle_request_exception(e)
 
 
 if __name__ == "__main__":
