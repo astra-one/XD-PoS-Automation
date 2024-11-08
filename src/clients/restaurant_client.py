@@ -18,10 +18,10 @@ class RestaurantClient:
     USER_ID: str = "1"
     APP_VERSION: str = "1.0"
     PROTOCOL_VERSION: str = "1"
-    TOKEN: str = "fed3a2d9c43edded3d54640025a96e4c7277ce05"
+    TOKEN: str = ""
     LIMIT: int = 5000
 
-    def __new__(cls):
+    def __new__(cls, token_manager: TokenManager):
         if cls._instance is None:
             cls._instance = super().__new__(cls)
             cls._instance.products: Dict[str, Product] = {}
@@ -29,14 +29,15 @@ class RestaurantClient:
                 user_id=cls.USER_ID,
                 app_version=cls.APP_VERSION,
                 protocol_version=cls.PROTOCOL_VERSION,
-                token=cls.TOKEN,
+                token="",  # Inicialize com token vazio
             )
+            cls._instance.token_manager = token_manager
         return cls._instance
 
-    def __init__(self):
+    def __init__(self, token_manager):
         if not self.products:
             asyncio.run(self.load_products())
-        self.token_manager = TokenManager()
+        self.token_manager = token_manager
 
     async def load_products(self):
         """Load products and store them in the cache."""
@@ -76,18 +77,38 @@ class RestaurantClient:
 
     async def _send_message(self, message: str) -> Optional[str]:
         """Send a message to the TCP server and return the response."""
-        # Before sending the message, ensure we have a valid token
         token = await self.token_manager.get_token()
-        # Include the token in the message or headers as required
-        # For example, if you're sending the token in the message:
         message_with_token = self._include_token_in_message(message, token)
 
         with TCPClient() as client:
             loop = asyncio.get_event_loop()
-            response = await loop.run_in_executor(
-                None, client.send_data, message_with_token
-            )
-            return response
+            try:
+                response = await loop.run_in_executor(
+                    None, client.send_data, message_with_token
+                )
+                # Verifique se a resposta contém um erro de autenticação
+                if self._is_authentication_error(response):
+                    # Se houver erro de autenticação, atualize o estado do TokenManager
+                    await self.token_manager.set_unauthenticated()
+                    raise HTTPException(
+                        status_code=401,
+                        detail="Authentication error: token expired or invalid",
+                    )
+                return response
+            except Exception as e:
+                # Em caso de erro de conexão ou outro problema, também pode marcar como não autenticado
+                await self.token_manager.set_unauthenticated()
+                raise HTTPException(
+                    status_code=500, detail=f"Failed to send message: {e}"
+                )
+
+    def _is_authentication_error(self, response: str) -> bool:
+        """Check if the response indicates an authentication error."""
+        # Aqui você deve implementar a lógica que identifica um erro de autenticação na resposta
+        # Suponha que uma resposta específica indique erro de autenticação (exemplo: "AuthError")
+        return (
+            "AuthError" in response
+        )  # Substitua pelo indicador real de erro de autenticação
 
     def _include_token_in_message(self, message: str, token: str) -> str:
         # Modify this method based on how the token should be included in your messages

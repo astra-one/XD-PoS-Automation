@@ -256,6 +256,44 @@ class HTTPSClient:
         print(f"[Client] No credential found with ID {credential_id}.")
         return False
 
+    def try_all_credentials_until_success(self, credentials):
+        """Try each credential, starting with the newest, until one returns a successful device configuration."""
+
+        # Ordena as credenciais pela data de expiração em ordem decrescente
+        sorted_credentials = sorted(
+            credentials, key=lambda cred: cred.get("expirationDate", 0), reverse=True
+        )
+
+        try:
+            for credential in sorted_credentials:
+                # Store the selected credential details in class variables
+                self.selected_credential_id = credential.get("credentialId")
+                self.selected_username = credential.get("username")
+                self.selected_terminal = credential.get("terminal")
+                self.selected_authorization = credential.get("authorization")
+                self.selected_expiration_date = credential.get("expirationDate")
+                self.selected_active = credential.get("active")
+                self.selected_type = credential.get("type")
+
+                print(f"\n[Client] Trying Credential {self.selected_credential_id}:")
+                print(f"  Username         : {self.selected_username}")
+                print(f"  Authorization    : {self.selected_authorization}")
+                print(f"  Expiration Date  : {self.selected_expiration_date}")
+
+                # Attempt to request device configuration
+                device_config = self.request_device_configuration()
+                if device_config:
+                    print("Device configuration received:", device_config)
+                    return device_config
+
+            print("[Client] No credentials succeeded in requesting device configuration.")
+            return None
+
+        except KeyboardInterrupt:
+            print("\n[Client] Operation interrupted by user.")
+            return None
+
+
     def select_by_latest_expiration(self, credentials):
         """Select the credential with the largest expiration date (as an integer)."""
         latest_credential = None

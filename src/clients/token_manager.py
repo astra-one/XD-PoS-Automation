@@ -60,7 +60,7 @@ class TokenManager:
             success = random.choice([True, False])
             if success:
                 # Simulate setting a random token
-                self.token = f"mock_token_{random.randint(1000,9999)}"
+                self.token = f"mock_token_{random.randint(1000, 9999)}"
                 # Set the token expiration time randomly between 1 and 2 minutes
                 random_expiration = random.randint(60, 120)  # seconds
                 self.token_expiration = time.time() + random_expiration
@@ -72,7 +72,7 @@ class TokenManager:
                 logger.debug("Mock authentication failed.")
                 return False
         else:
-            # Implement real authentication logic using handle_authentication_and_request
+            # Real authentication logic using HTTPSClient
             client = HTTPSClient()
             username = "info@xd.pt"
             password = "xd"
@@ -97,29 +97,91 @@ class TokenManager:
 
             logger.info("Credentials matched successfully.")
 
-            # Step 3: Select the credential with the latest expiration date
-            if client.select_by_latest_expiration(matched_credentials):
-                # Step 4: Request device configuration
-                device_config = client.request_device_configuration()
-                if device_config:
-                    logger.info("Device configuration received.")
-                    # Assuming device_config contains 'access_token' and 'expires_in' fields
-                    self.token = (
-                        client.access_token
-                    )  # Use the access token from HTTPSClient
-                    # Set the token expiration time based on actual token lifetime
-                    if hasattr(client, "token_expiration") and client.token_expiration:
-                        self.token_expiration = client.token_expiration
-                    else:
-                        # Default to 1 hour if expiration not provided
-                        self.token_expiration = time.time() + 3600
-                    return True
+            # Step 3: Try each credential until one works
+            device_config = client.try_all_credentials_until_success(matched_credentials)
+            if device_config:
+                logger.info("Device configuration received.")
+
+                # Use the access token from HTTPSClient
+                self.token = client.access_token
+
+                # Set the token expiration time based on actual token lifetime
+                if hasattr(client, "token_expiration") and client.token_expiration:
+                    self.token_expiration = client.token_expiration
                 else:
-                    logger.error("Failed to receive device configuration.")
-                    return False
+                    # Default to 1 hour if expiration not provided
+                    self.token_expiration = time.time() + 3600
+                return True
             else:
-                logger.error("Failed to select credential by latest expiration date.")
+                logger.error("Failed to receive device configuration with all credentials.")
                 return False
+
+    # async def _perform_authentication(self):
+    #     if self.use_mock:
+    #         # Simulate mock authentication with 50% chance of success
+    #         success = random.choice([True, False])
+    #         if success:
+    #             # Simulate setting a random token
+    #             self.token = f"mock_token_{random.randint(1000,9999)}"
+    #             # Set the token expiration time randomly between 1 and 2 minutes
+    #             random_expiration = random.randint(60, 120)  # seconds
+    #             self.token_expiration = time.time() + random_expiration
+    #             logger.debug(
+    #                 f"Mock token generated, expires in {random_expiration} seconds."
+    #             )
+    #             return True
+    #         else:
+    #             logger.debug("Mock authentication failed.")
+    #             return False
+    #     else:
+    #         # Implement real authentication logic using handle_authentication_and_request
+    #         client = HTTPSClient()
+    #         username = "info@xd.pt"
+    #         password = "xd"
+    #         username_app = "XDBR.105112"
+    #         password_app = "1234"
+    #         client_id = "mobileapps"
+    #         client_secret = ""  # If a client secret is required, add it here.
+
+    #         # Step 1: Authenticate
+    #         success = client.authenticate(username, password, client_id, client_secret)
+    #         if not success:
+    #             logger.error("Authentication failed in HTTPSClient.")
+    #             return False
+
+    #         logger.info("Authentication successful in HTTPSClient.")
+
+    #         # Step 2: Match credentials
+    #         matched_credentials = client.match_credentials(username_app, password_app)
+    #         if not matched_credentials:
+    #             logger.error("Failed to match credentials.")
+    #             return False
+
+    #         logger.info("Credentials matched successfully.")
+
+    #         # Step 3: Select the credential with the latest expiration date
+    #         if client.select_by_latest_expiration(matched_credentials):
+    #             # Step 4: Request device configuration
+    #             device_config = client.request_device_configuration()
+    #             if device_config:
+    #                 logger.info("Device configuration received.")
+    #                 # Assuming device_config contains 'access_token' and 'expires_in' fields
+    #                 self.token = (
+    #                     client.access_token
+    #                 )  # Use the access token from HTTPSClient
+    #                 # Set the token expiration time based on actual token lifetime
+    #                 if hasattr(client, "token_expiration") and client.token_expiration:
+    #                     self.token_expiration = client.token_expiration
+    #                 else:
+    #                     # Default to 1 hour if expiration not provided
+    #                     self.token_expiration = time.time() + 3600
+    #                 return True
+    #             else:
+    #                 logger.error("Failed to receive device configuration.")
+    #                 return False
+    #         else:
+    #             logger.error("Failed to select credential by latest expiration date.")
+    #             return False
 
     def is_token_expired(self):
         # Check if the token is expired
