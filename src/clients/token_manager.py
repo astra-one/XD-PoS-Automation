@@ -132,26 +132,35 @@ class TokenManager:
     async def get_token(self):
         # Bloqueia o acesso ao token para garantir uma única autenticação
         async with self.token_lock:
+            logger.debug("Entering get_token - Current state: %s", self.state)
+
             # Se já está autenticado e o token ainda é válido, retorna o token diretamente
             if self.state == "Authenticated" and not self.is_token_expired():
+                logger.debug("Token is valid and authenticated, returning token.")
                 return self.token
             
             # Se a autenticação já está em progresso, espera que o estado mude para "Authenticated" ou "Unauthenticated"
             if self.state == "Authenticating":
+                logger.debug("Authentication already in progress, waiting for it to complete.")
                 while self.state == "Authenticating":
                     await asyncio.sleep(0.1)  # Espera brevemente antes de verificar novamente
                 # Após a espera, verifica se o estado agora é autenticado
                 if self.state == "Authenticated":
+                    logger.debug("Authentication completed by another process, returning token.")
                     return self.token
                 else:
                     # Se a autenticação falhou, tenta iniciar uma nova autenticação
+                    logger.debug("Previous authentication attempt failed, retrying.")
                     await self.authenticate()
                     return self.token
 
             # Caso contrário, inicia uma nova autenticação
+            logger.debug("Starting new authentication process.")
             self.state = "Authenticating"
             await self.authenticate()
+            logger.debug("Authentication process completed, returning token.")
             return self.token
+
     
     async def is_authenticated(self):
         return self.state == "Authenticated"
