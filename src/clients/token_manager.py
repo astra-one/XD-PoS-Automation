@@ -32,27 +32,28 @@ class TokenManager:
             self._initialized = True  # Prevent re-initialization
 
     async def authenticate(self):
-        async with self.token_lock:
-            print("State: ", self.state)
-            print("Token: ", self.token)
-            if (
-                self.state == "Authenticated"
-                and self.token
-                and not self.is_token_expired()
-            ):
-                print("[TokenManager] Token is still valid.")
-                return self.token  # Token is still valid
+        # Removed the lock acquisition here to prevent deadlock
+        print("State: ", self.state)
+        print("Token: ", self.token)
+        if (
+            self.state == "Authenticated"
+            and self.token
+            and not self.is_token_expired()
+        ):
+            print("[TokenManager] Token is still valid.")
+            return self.token  # Token is still valid
 
-            self.state = "Authenticating"
-            success = await self._perform_authentication()
-            if success:
-                self.state = "Authenticated"
-                print("[TokenManager] Authentication successful.")
-                return self.token
-            else:
-                self.state = "Unauthenticated"
-                print("[TokenManager] Authentication failed.")
-                raise AuthenticationError()
+        self.state = "Authenticating"
+        print("[TokenManager] Starting authentication process.")
+        success = await self._perform_authentication()
+        if success:
+            self.state = "Authenticated"
+            print("[TokenManager] Authentication successful.")
+            return self.token
+        else:
+            self.state = "Unauthenticated"
+            print("[TokenManager] Authentication failed.")
+            raise AuthenticationError()
 
     async def _perform_authentication(self):
         if self.use_mock:
@@ -82,6 +83,7 @@ class TokenManager:
             client_secret = ""  # If a client secret is required, add it here.
 
             # Step 1: Authenticate
+            print("Autenticando")
             success = client.authenticate(username, password, client_id, client_secret)
             if not success:
                 logger.error("Authentication failed in HTTPSClient.")
@@ -90,6 +92,7 @@ class TokenManager:
             logger.info("Authentication successful in HTTPSClient.")
 
             # Step 2: Match credentials
+            print("Match credentials")
             matched_credentials = client.match_credentials(username_app, password_app)
             if not matched_credentials:
                 logger.error("Failed to match credentials.")
@@ -131,14 +134,17 @@ class TokenManager:
 
     async def get_token(self):
         # Bloqueia o acesso ao token para garantir uma única autenticação
+        print("State: ", self.state)
+        print("Token Lock: ", self.token_lock)
         async with self.token_lock:
+            print("Salve")
             logger.debug("Entering get_token - Current state: %s", self.state)
 
             # Se já está autenticado e o token ainda é válido, retorna o token diretamente
             if self.state == "Authenticated" and not self.is_token_expired():
                 logger.debug("Token is valid and authenticated, returning token.")
                 return self.token
-            
+
             # Se a autenticação já está em progresso, espera que o estado mude para "Authenticated" ou "Unauthenticated"
             if self.state == "Authenticating":
                 logger.debug("Authentication already in progress, waiting for it to complete.")
@@ -151,16 +157,17 @@ class TokenManager:
                 else:
                     # Se a autenticação falhou, tenta iniciar uma nova autenticação
                     logger.debug("Previous authentication attempt failed, retrying.")
+                    self.state = "Authenticating"
                     await self.authenticate()
                     return self.token
 
             # Caso contrário, inicia uma nova autenticação
             logger.debug("Starting new authentication process.")
             self.state = "Authenticating"
+            print("Começou")
             await self.authenticate()
             logger.debug("Authentication process completed, returning token.")
             return self.token
 
-    
     async def is_authenticated(self):
         return self.state == "Authenticated"
