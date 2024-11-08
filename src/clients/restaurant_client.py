@@ -29,7 +29,6 @@ class RestaurantClient:
                 user_id=cls.USER_ID,
                 app_version=cls.APP_VERSION,
                 protocol_version=cls.PROTOCOL_VERSION,
-                token="",  # Inicialize com token vazio
             )
             cls._instance.token_manager = token_manager
         return cls._instance
@@ -37,7 +36,7 @@ class RestaurantClient:
     def __init__(self, token_manager):
         if not self.products:
             asyncio.run(self.load_products())
-        self.token_manager = token_manager
+        self.token_manager : TokenManager = token_manager
 
     async def load_products(self):
         """Load products and store them in the cache."""
@@ -52,7 +51,7 @@ class RestaurantClient:
 
     async def _fetch_data_list(self, object_type: str, model_class: Type) -> List:
         """Generic method to fetch a list of data from the server via TCP."""
-        message = self.message_builder.build_get_data_list(
+        message = await self.message_builder.build_get_data_list(
             object_type=object_type,
             part=0,
             limit=self.LIMIT,
@@ -77,15 +76,11 @@ class RestaurantClient:
 
     async def _send_message(self, message: str) -> Optional[str]:
         """Send a message to the TCP server and return the response."""
-        token = await self.token_manager.get_token()
-        message_with_token = self._include_token_in_message(message, token)
 
         with TCPClient() as client:
             loop = asyncio.get_event_loop()
             try:
-                response = await loop.run_in_executor(
-                    None, client.send_data, message_with_token
-                )
+                response = await loop.run_in_executor(None, client.send_data, message)
                 # Verifique se a resposta contém um erro de autenticação
                 if self._is_authentication_error(response):
                     # Se houver erro de autenticação, atualize o estado do TokenManager
@@ -110,15 +105,10 @@ class RestaurantClient:
             "AuthError" in response
         )  # Substitua pelo indicador real de erro de autenticação
 
-    def _include_token_in_message(self, message: str, token: str) -> str:
-        # Modify this method based on how the token should be included in your messages
-        # For example, if the token is included in the headers or as a field in the message
-        return f"{message}[TOKEN]{token}[ENDTOKEN]"
-
     async def fetch_table_content(self, table_id: int) -> Dict:
         """Fetch content for a specific table and enrich it with product names."""
         try:
-            message = self.message_builder.build_get_board_content(
+            message = await self.message_builder.build_get_board_content(
                 board_id=str(table_id)
             )
             response = await self._send_message(message)
@@ -175,7 +165,7 @@ class RestaurantClient:
                     status_code=404, detail="No orders found for the table."
                 )
 
-            message = self.message_builder.build_post_queue_message(
+            message = await self.message_builder.build_post_queue_message(
                 employee_id=int(self.USER_ID), table=table_id, orders=orders
             )
             response = await self._send_message(message)
@@ -195,7 +185,7 @@ class RestaurantClient:
     async def close_table(self, table_id: int) -> str:
         """Send a POSTQUEUE message to close the table after payment."""
         try:
-            message = self.message_builder.build_close_table_message(
+            message = await self.message_builder.build_close_table_message(
                 employee_id=int(self.USER_ID), table=table_id
             )
             response = await self._send_message(message)

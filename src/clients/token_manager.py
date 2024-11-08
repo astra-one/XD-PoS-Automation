@@ -106,14 +106,14 @@ class TokenManager:
                 logger.info("Device configuration received.")
 
                 # Use the access token from HTTPSClient
-                self.token = client.access_token
+                self.token = device_config["Token"]
 
                 # Set the token expiration time based on actual token lifetime
                 if hasattr(client, "token_expiration") and client.token_expiration:
                     self.token_expiration = client.token_expiration
                 else:
-                    # Default to 1 hour if expiration not provided
-                    self.token_expiration = time.time() + 3600
+                    # Default to 1 day if no expiration time is provided
+                    self.token_expiration = time.time() + 86400  # 1 day
                 return True
             else:
                 logger.error("Failed to receive device configuration with all credentials.")

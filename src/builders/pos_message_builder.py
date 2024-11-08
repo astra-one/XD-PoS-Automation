@@ -1,8 +1,10 @@
-import uuid
 import base64
 import json
-import time
+from threading import Lock
 from typing import Dict, List, Optional
+import uuid
+
+from ..clients.token_manager import TokenManager
 
 
 class MessageBuilder:
@@ -36,31 +38,30 @@ class MessageBuilder:
     MESSAGE_IDENTIFIER_GET_BOARD_CONTENT = "GETBOARDCONTENT"
     MESSAGE_TYPE_GET_BOARD_CONTENT = "XDPeople.Entities.GetBoardInfoMessage"
 
-    def __init__(
-        self, user_id: str, app_version: str, protocol_version: str, token: str
-    ):
-        self.user_id = user_id
-        self.app_version = app_version
-        self.protocol_version = protocol_version
-        self.token = token
+    _instance: Optional["MessageBuilder"] = None
+    _singleton_lock = Lock()  # For thread-safe singleton implementation
 
-    def build_message(
+    def __new__(cls, *args, **kwargs):
+        if not cls._instance:
+            with cls._singleton_lock:
+                if not cls._instance:
+                    cls._instance = super(MessageBuilder, cls).__new__(cls)
+                    cls._instance.token_manager = TokenManager()
+        return cls._instance
+
+    def __init__(self, user_id: str, app_version: str, protocol_version: str):
+        if not hasattr(self, "_initialized"):
+            self.user_id = user_id
+            self.app_version = app_version
+            self.protocol_version = protocol_version
+            self._initialized = True  # Flag to prevent re-initialization
+
+    async def build_message(
         self,
         message_identifier: str,
         message_type: str,
         parameters: Dict[str, str],
     ) -> str:
-        """
-        Generic method to construct a message.
-
-        Args:
-            message_identifier (str): The identifier of the message (e.g., "GETDATALIST").
-            message_type (str): The type of the message (e.g., "XDPeople.Entities.GetDataListMessage").
-            parameters (Dict[str, str]): A dictionary of key-value pairs to include in the message.
-
-        Returns:
-            str: The constructed message string.
-        """
         # Generate a unique MESSAGEID if not already provided
         if self.MESSAGE_ID_KEY not in parameters:
             parameters[self.MESSAGE_ID_KEY] = str(uuid.uuid4())
@@ -68,7 +69,7 @@ class MessageBuilder:
         # Add common parameters
         parameters[self.MESSAGE_TYPE_KEY] = message_type
         parameters[self.USER_ID_KEY] = self.user_id
-        parameters[self.TOKEN_KEY] = self.token
+        parameters[self.TOKEN_KEY] = await self.token_manager.get_token()
         parameters[self.PROTOCOL_VERSION_ID] = self.protocol_version
 
         # Construct the message
@@ -79,7 +80,7 @@ class MessageBuilder:
 
         return "".join(message_components)
 
-    def build_get_board_content(self, board_id: str, request_type: int = 1) -> str:
+    async def build_get_board_content(self, board_id: str, request_type: int = 1) -> str:
         """
         Constructs the GETBOARDCONTENT message.
 
@@ -94,14 +95,18 @@ class MessageBuilder:
             "BOARDID": board_id,
             "TYPE": str(request_type),
         }
-        return self.build_message(
+        return await self.build_message(
             message_identifier=self.MESSAGE_IDENTIFIER_GET_BOARD_CONTENT,
             message_type=self.MESSAGE_TYPE_GET_BOARD_CONTENT,
             parameters=parameters,
         )
 
-    def build_post_queue_message(
-        self, employee_id: int, table: int, orders: List[Dict], guid: Optional[str] = None
+    async def build_post_queue_message(
+        self,
+        employee_id: int,
+        table: int,
+        orders: List[Dict],
+        guid: Optional[str] = None,
     ) -> str:
         """
         Constructs the POSTQUEUE message with a base64-encoded queue.
@@ -134,13 +139,13 @@ class MessageBuilder:
             "QUEUE": queue_encoded,
         }
 
-        return self.build_message(
+        return await self.build_message(
             message_identifier=self.MESSAGE_IDENTIFIER_POST_QUEUE,
             message_type=self.MESSAGE_TYPE_POST_ACTION,
             parameters=parameters,
         )
 
-    def build_close_table_message(
+    async def build_close_table_message(
         self, employee_id: int, table: int, guid: Optional[str] = None
     ) -> str:
         """
@@ -172,13 +177,13 @@ class MessageBuilder:
             "QUEUE": queue_encoded,
         }
 
-        return self.build_message(
+        return await self.build_message(
             message_identifier=self.MESSAGE_IDENTIFIER_POST_QUEUE,
             message_type=self.MESSAGE_TYPE_POST_ACTION,
             parameters=parameters,
         )
 
-    def build_get_data_list(
+    async def build_get_data_list(
         self,
         object_type: str,
         part: int = 0,
@@ -204,7 +209,7 @@ class MessageBuilder:
         }
         if message_id:
             parameters[self.MESSAGE_ID_KEY] = message_id
-        return self.build_message(
+        return await self.build_message(
             message_identifier=self.MESSAGE_IDENTIFIER_GET_DATA_LIST,
             message_type=self.MESSAGE_TYPE_GET_DATA_LIST,
             parameters=parameters,
@@ -242,7 +247,7 @@ class MessageBuilder:
             str: The base64-encoded queue string.
         """
         queue_json = json.dumps(queue_data)
-        return base64.b64encode(queue_json.encode('utf-8')).decode('utf-8')
+        return base64.b64encode(queue_json.encode("utf-8")).decode("utf-8")
 
     def add_protocol_version(self, protocol_version: str) -> str:
         """
@@ -254,9 +259,7 @@ class MessageBuilder:
         Returns:
             str: Formatted protocol version parameter.
         """
-        return self.add_message_parameter(
-            self.PROTOCOL_VERSION_ID, protocol_version
-        )
+        return self.add_message_parameter(self.PROTOCOL_VERSION_ID, protocol_version)
 
     def add_message_parameter(self, key: str, value: str) -> str:
         """
@@ -274,4 +277,4 @@ class MessageBuilder:
     # Optional: Retain the encrypt_message method for future use
     def encrypt_message(self, message: str) -> str:
         """Convert each character of the message to its hexadecimal ASCII code representation."""
-        return ''.join(format(ord(char), 'x') for char in message)
+        return "".join(format(ord(char), "x") for char in message)

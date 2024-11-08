@@ -51,6 +51,7 @@ class TCPClient:
         return socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
     def send_data(self, message):
+        print("Message: ", message)
         """Send ASCII-encoded message to the server."""
         if self.client_socket is None:
             return None
