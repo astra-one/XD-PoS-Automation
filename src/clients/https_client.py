@@ -435,17 +435,18 @@ def handle_authentication_and_request(
 
     # Step 3: Select the credential with the latest expiration date
     if client.select_by_latest_expiration(matched_credentials):
+        pass
         # Step 4: Request device configuration
-        device_config = client.request_device_configuration()
-        if device_config:
-            print("Device configuration received:", device_config)
-            return True
-        else:
-            print("Failed to receive device configuration.")
-            return False
-    else:
-        print("Failed to select credential by latest expiration date.")
-        return False
+        # device_config = client.request_device_configuration()
+        # if device_config:
+            # print("Device configuration received:", device_config)
+            # return True
+        # else:
+            # print("Failed to receive device configuration.")
+            # return False
+    # else:
+        # print("Failed to select credential by latest expiration date.")
+        # return False
 
 
 # Usage example
