@@ -6,8 +6,10 @@ from threading import Lock
 from ..errors.authentication_error import AuthenticationError
 from .https_client import HTTPSClient
 import logging
+import requests
 
 # Configure logging
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
@@ -22,7 +24,7 @@ class TokenManager:
                     cls._instance = super(TokenManager, cls).__new__(cls)
         return cls._instance
 
-    def __init__(self, use_mock: bool = False):
+    def __init__(self, use_mock: bool = False, url: str = "http://localhost:8001"):
         if not hasattr(self, "_initialized"):
             self.token: Optional[str] = None
             self.token_expiration: Optional[float] = None  # Epoch time
@@ -30,30 +32,31 @@ class TokenManager:
             self.token_lock = asyncio.Lock()  # For async token access
             self.use_mock = use_mock
             self._initialized = True  # Prevent re-initialization
+            logger.info(f"URL: {url}")
+            self._url = url
 
     async def authenticate(self):
-        # Removed the lock acquisition here to prevent deadlock
-        print("State: ", self.state)
-        print("Token: ", self.token)
+        logger.info(f"State: {self.state}")
+        logger.info(f"Token: {self.token}")
         if (
             self.state == "Authenticated"
             and self.token
             and not self.is_token_expired()
         ):
-            print("[TokenManager] Token is still valid.")
+            logger.info("[TokenManager] Token is still valid.")
             return self.token  # Token is still valid
 
         self.state = "Authenticating"
-        print("[TokenManager] Starting authentication process.")
+        logger.info("[TokenManager] Starting authentication process.")
         success = await self._perform_authentication()
         if success:
             self.state = "Authenticated"
-            print("[TokenManager] Authentication successful.")
+            logger.info("[TokenManager] Authentication successful.")
             return self.token
         else:
             self.state = "Unauthenticated"
-            print("[TokenManager] Authentication failed.")
-            raise AuthenticationError()
+            logger.error("[TokenManager] Authentication failed.")
+            raise AuthenticationError("Authentication failed.")
 
     async def _perform_authentication(self):
         if self.use_mock:
@@ -73,55 +76,31 @@ class TokenManager:
                 logger.debug("Mock authentication failed.")
                 return False
         else:
-            # Real authentication logic using HTTPSClient
-            client = HTTPSClient()
-            username = "info@xd.pt"
-            password = "xd"
-            username_app = "XDBR.105112"
-            password_app = "1234"
-            client_id = "mobileapps"
-            client_secret = ""  # If a client secret is required, add it here.
+            # Request to authenticate and get the token
+            try:
+                url = f"{self._url}/auth/"
+                response = requests.get(url, timeout=60)
+                response.raise_for_status()
+                response_json = response.json()
+                self.token = response_json["token"]
+                token_expiration_str = response_json.get("token_expiration")
+                if token_expiration_str:
+                    # Parse the token expiration time
+                    from datetime import datetime
 
-            # Step 1: Authenticate
-            print("Autenticando")
-            success = client.authenticate(username, password, client_id, client_secret)
-            if not success:
-                logger.error("Authentication failed in HTTPSClient.")
-                return False
-
-            logger.info("Authentication successful in HTTPSClient.")
-
-            # Step 2: Match credentials
-            print("Match credentials")
-            matched_credentials = client.match_credentials(username_app, password_app)
-            if not matched_credentials:
-                logger.error("Failed to match credentials.")
-                return False
-
-            logger.info("Credentials matched successfully.")
-
-            # Step 3: Try each credential until one works
-            device_config = client.try_all_credentials_until_success(matched_credentials)
-            if device_config:
-                logger.info("Device configuration received.")
-
-                # Use the access token from HTTPSClient
-                self.token = device_config["Token"]
-
-                # Set the token expiration time based on actual token lifetime
-                if hasattr(client, "token_expiration") and client.token_expiration:
-                    self.token_expiration = client.token_expiration
+                    token_expiration = datetime.fromisoformat(token_expiration_str)
+                    self.token_expiration = token_expiration.timestamp()
                 else:
-                    # Default to 1 day if no expiration time is provided
-                    self.token_expiration = time.time() + 86400  # 1 day
+                    # Default token expiration time (e.g., 1 hour)
+                    self.token_expiration = time.time() + 3600
                 return True
-            else:
-                logger.error("Failed to receive device configuration with all credentials.")
+            except requests.exceptions.RequestException as e:
+                logger.error(f"Error authenticating: {e}")
                 return False
 
     def is_token_expired(self):
         # Check if the token is expired
-        print("Token expiration: ", self.token_expiration)
+        logger.info(f"Token expiration: {self.token_expiration}")
         if not self.token_expiration:
             return True
         is_expired = time.time() >= self.token_expiration
@@ -133,41 +112,44 @@ class TokenManager:
         return is_expired
 
     async def get_token(self):
-        # Bloqueia o acesso ao token para garantir uma única autenticação
-        print("State: ", self.state)
-        print("Token Lock: ", self.token_lock)
+        # Lock access to the token to ensure a single authentication
+        logger.info(f"State: {self.state}")
         async with self.token_lock:
-            print("Salve")
             logger.debug("Entering get_token - Current state: %s", self.state)
 
-            # Se já está autenticado e o token ainda é válido, retorna o token diretamente
+            # If already authenticated and token is valid, return the token directly
             if self.state == "Authenticated" and not self.is_token_expired():
                 logger.debug("Token is valid and authenticated, returning token.")
                 return self.token
 
-            # Se a autenticação já está em progresso, espera que o estado mude para "Authenticated" ou "Unauthenticated"
+            # If authentication is already in progress, wait until it completes
             if self.state == "Authenticating":
-                logger.debug("Authentication already in progress, waiting for it to complete.")
+                logger.debug(
+                    "Authentication already in progress, waiting for it to complete."
+                )
                 while self.state == "Authenticating":
-                    await asyncio.sleep(0.1)  # Espera brevemente antes de verificar novamente
-                # Após a espera, verifica se o estado agora é autenticado
-                if self.state == "Authenticated":
-                    logger.debug("Authentication completed by another process, returning token.")
+                    await asyncio.sleep(0.1)  # Briefly wait before checking again
+                # After waiting, check if the state is now authenticated
+                if self.state == "Authenticated" and not self.is_token_expired():
+                    logger.debug(
+                        "Authentication completed by another process, returning token."
+                    )
                     return self.token
                 else:
-                    # Se a autenticação falhou, tenta iniciar uma nova autenticação
-                    logger.debug("Previous authentication attempt failed, retrying.")
-                    self.state = "Authenticating"
-                    await self.authenticate()
-                    return self.token
+                    # If authentication failed, raise an error
+                    logger.error("Authentication failed during wait.")
+                    raise AuthenticationError("Authentication failed during wait.")
 
-            # Caso contrário, inicia uma nova autenticação
+            # Otherwise, start a new authentication
             logger.debug("Starting new authentication process.")
             self.state = "Authenticating"
-            print("Começou")
-            await self.authenticate()
-            logger.debug("Authentication process completed, returning token.")
-            return self.token
+            try:
+                await self.authenticate()
+                logger.debug("Authentication process completed, returning token.")
+                return self.token
+            except AuthenticationError as e:
+                logger.error(f"Authentication error: {e}")
+                raise
 
     async def is_authenticated(self):
         return self.state == "Authenticated"

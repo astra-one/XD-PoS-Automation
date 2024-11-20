@@ -25,17 +25,21 @@ app.add_middleware(
     allow_headers=["*"],  # Allow all headers
 )
 
+
 def read_config_file(filename):
     config = configparser.ConfigParser()
     config.read(filename)
     return config
 
+
 def get_token_manager():
     config = read_config_file("config.ini")["Settings"]
     APP_MODE = config.get("app_mode", "prod")  # Default to 'prod' if not specified
     use_mock = APP_MODE.lower() == "dev"
-    token_manager = TokenManager(use_mock=use_mock)
+    coti_api_url = config.get("coti_cloud_services_url", "http://localhost:8005")
+    token_manager = TokenManager(use_mock=use_mock, url=coti_api_url)
     return token_manager
+
 
 # Dependency that will create and return the RestaurantClient or RestaurantMockClient instance
 def get_restaurant_client(token_manager: TokenManager = Depends(get_token_manager)):
@@ -46,9 +50,11 @@ def get_restaurant_client(token_manager: TokenManager = Depends(get_token_manage
         logger.info("Running in production mode. Using RestaurantClient.")
         return RestaurantClient(token_manager=token_manager)
 
+
 # Dependency that will create and return the OrderProcessorChain instance
 def get_order_processor_chain() -> OrderProcessorChain:
     return OrderProcessorChain()
+
 
 def handle_request_exception(e: Exception):
     if isinstance(e, AuthenticationError):
@@ -60,9 +66,11 @@ def handle_request_exception(e: Exception):
         logger.error(f"Unhandled exception: {e}")
         raise HTTPException(status_code=500, detail="An unexpected error occurred.")
 
+
 @app.get("/is_authenticated/")
 async def is_authenticated(token_manager: TokenManager = Depends(get_token_manager)):
     return {"is_authenticated": await token_manager.is_authenticated()}
+
 
 @app.post("/message/")
 async def create_board_message(
@@ -78,9 +86,7 @@ async def create_board_message(
     try:
         # Validate table_id is an integer
         if not isinstance(table_id, int):
-            raise HTTPException(
-                status_code=400, detail="table_id must be an integer."
-            )
+            raise HTTPException(status_code=400, detail="table_id must be an integer.")
 
         # Fetch the table order from the RestaurantClient
         table_order = await client.fetch_table_content(table_id)
@@ -110,6 +116,7 @@ async def create_board_message(
     except Exception as e:
         handle_request_exception(e)
 
+
 @app.post("/order/")
 async def get_order_by_id(
     request: MessageRequest,
@@ -127,6 +134,7 @@ async def get_order_by_id(
     except Exception as e:
         handle_request_exception(e)
 
+
 @app.get("/tables/")
 async def get_tables(
     client: RestaurantClient = Depends(get_restaurant_client),
@@ -141,6 +149,7 @@ async def get_tables(
 
     except Exception as e:
         handle_request_exception(e)
+
 
 @app.post("/payment/")
 async def set_payment_status(
@@ -172,6 +181,7 @@ async def set_payment_status(
     except Exception as e:
         handle_request_exception(e)
 
+
 @app.post("/close/")
 async def close_table_endpoint(
     request: MessageRequest,
@@ -200,6 +210,8 @@ async def close_table_endpoint(
     except Exception as e:
         handle_request_exception(e)
 
+
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run("app:app", host="0.0.0.0", port=8000, reload=True)
