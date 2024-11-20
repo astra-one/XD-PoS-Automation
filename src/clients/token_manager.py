@@ -6,7 +6,7 @@ from threading import Lock
 from ..errors.authentication_error import AuthenticationError
 from .https_client import HTTPSClient
 import logging
-import requests
+from datetime import datetime, timedelta
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -76,27 +76,47 @@ class TokenManager:
                 logger.debug("Mock authentication failed.")
                 return False
         else:
-            # Request to authenticate and get the token
+            # Perform authentication and token generation
             try:
-                url = f"{self._url}/auth/"
-                response = requests.get(url, timeout=60)
-                response.raise_for_status()
-                response_json = response.json()
-                self.token = response_json["token"]
-                token_expiration_str = response_json.get("token_expiration")
-                if token_expiration_str:
-                    # Parse the token expiration time
-                    from datetime import datetime
+                client = HTTPSClient()
+                username = "info@xd.pt"
+                password = "xd"
+                username_app = "XDBR.105112"
+                password_app = "1234"
+                client_id = "mobileapps"
+                client_secret = ""  # Replace with the actual client secret if required
 
-                    token_expiration = datetime.fromisoformat(token_expiration_str)
+                # Authenticate
+                success = client.authenticate(username, password, client_id, client_secret)
+                if not success:
+                    logger.error("Authentication failed in HTTPSClient.")
+                    return False
+                logger.info("Authentication successful in HTTPSClient.")
+
+                # Create a new credential
+                new_credential = client.create_new_credential(username_app, password_app)
+                if not new_credential:
+                    logger.error("Failed to create a new credential.")
+                    return False
+                logger.info("New credential created.")
+
+                # Request device configuration using the new credential
+                device_config = client.request_device_configuration()
+                if device_config:
+                    logger.info("Device configuration received.")
+                    # Use the token from device configuration
+                    self.token = device_config.get("Token")
+                    # Set the token expiration time (e.g., 1 day from now)
+                    token_expiration = datetime.utcnow() + timedelta(days=1)
                     self.token_expiration = token_expiration.timestamp()
+                    return True
                 else:
-                    # Default token expiration time (e.g., 1 hour)
-                    self.token_expiration = time.time() + 3600
-                return True
-            except requests.exceptions.RequestException as e:
-                logger.error(f"Error authenticating: {e}")
+                    logger.error("Failed to receive device configuration.")
+                    return False
+            except Exception as e:
+                logger.error(f"Error authenticating: {e}", exc_info=True)
                 return False
+
 
     def is_token_expired(self):
         # Check if the token is expired
