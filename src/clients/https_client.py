@@ -291,10 +291,10 @@ class HTTPSClient:
                 formatted_expiration_date = datetime.fromtimestamp(self.selected_expiration_date / 1000, tz=timezone.utc)
                 
                 # Attempt to request device configuration
-                # device_config = self.request_device_configuration()
-                # if device_config:
-                    # print("Device configuration received:", device_config)
-                    # return device_config
+                device_config = self.request_device_configuration()
+                if device_config:
+                    print("Device configuration received:", device_config)
+                    return device_config
 
             print("[Client] No credentials succeeded in requesting device configuration.")
             return None
