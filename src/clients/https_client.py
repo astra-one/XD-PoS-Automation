@@ -183,7 +183,7 @@ class HTTPSClient:
 
             print("[Client] Sending device auth request...")
             # Send the device auth request to the broadcast address (255.255.255.255) on port 8978
-            udp_socket.sendto(message_bytes, ('192.168.1.255', self.port))
+            udp_socket.sendto(message_bytes, ('192.168.15.100', self.port))
             print("[Client] Device auth request sent.")
             # Receive the response
             start_time = time.time()
