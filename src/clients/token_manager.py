@@ -1,9 +1,9 @@
 import asyncio
+from http.client import HTTPException
 import time
 import random
 from typing import Optional
 from threading import Lock
-from ..errors.authentication_error import AuthenticationError
 from .https_client import HTTPSClient
 import logging
 from datetime import datetime, timedelta
@@ -38,11 +38,7 @@ class TokenManager:
     async def authenticate(self):
         logger.info(f"State: {self.state}")
         logger.info(f"Token: {self.token}")
-        if (
-            self.state == "Authenticated"
-            and self.token
-            and not self.is_token_expired()
-        ):
+        if self.state == "Authenticated" and self.token and not self.is_token_expired():
             logger.info("[TokenManager] Token is still valid.")
             return self.token  # Token is still valid
 
@@ -56,7 +52,7 @@ class TokenManager:
         else:
             self.state = "Unauthenticated"
             logger.error("[TokenManager] Authentication failed.")
-            raise AuthenticationError("Authentication failed.")
+            raise HTTPException(status_code=401, detail="Authentication failed.")
 
     async def _perform_authentication(self):
         if self.use_mock:
@@ -76,47 +72,55 @@ class TokenManager:
                 logger.debug("Mock authentication failed.")
                 return False
         else:
-            # Perform authentication and token generation
-            try:
-                client = HTTPSClient()
-                username = "info@xd.pt"
-                password = "xd"
-                username_app = "XDBR.105112"
-                password_app = "1234"
-                client_id = "mobileapps"
-                client_secret = ""  # Replace with the actual client secret if required
+            # Real authentication logic using HTTPSClient
+            client = HTTPSClient()
+            username = "info@xd.pt"
+            password = "xd"
+            username_app = "XDBR.105112"
+            password_app = "1234"
+            client_id = "mobileapps"
+            client_secret = ""  # If a client secret is required, add it here.
 
-                # Authenticate
-                success = client.authenticate(username, password, client_id, client_secret)
-                if not success:
-                    logger.error("Authentication failed in HTTPSClient.")
-                    return False
-                logger.info("Authentication successful in HTTPSClient.")
-
-                # Create a new credential
-                new_credential = client.create_new_credential(username_app, password_app)
-                if not new_credential:
-                    logger.error("Failed to create a new credential.")
-                    return False
-                logger.info("New credential created.")
-
-                # Request device configuration using the new credential
-                device_config = client.request_device_configuration()
-                if device_config:
-                    logger.info("Device configuration received.")
-                    # Use the token from device configuration
-                    self.token = device_config.get("Token")
-                    # Set the token expiration time (e.g., 1 day from now)
-                    token_expiration = datetime.utcnow() + timedelta(days=1)
-                    self.token_expiration = token_expiration.timestamp()
-                    return True
-                else:
-                    logger.error("Failed to receive device configuration.")
-                    return False
-            except Exception as e:
-                logger.error(f"Error authenticating: {e}", exc_info=True)
+            # Step 1: Authenticate
+            print("Autenticando")
+            success = client.authenticate(username, password, client_id, client_secret)
+            if not success:
+                logger.error("Authentication failed in HTTPSClient.")
                 return False
 
+            logger.info("Authentication successful in HTTPSClient.")
+
+            # Step 2: Match credentials
+            print("Match credentials")
+            matched_credentials = client.match_credentials(username_app, password_app)
+            if not matched_credentials:
+                logger.error("Failed to match credentials.")
+                return False
+
+            logger.info("Credentials matched successfully.")
+
+            # Step 3: Try each credential until one works
+            device_config = client.try_all_credentials_until_success(
+                matched_credentials
+            )
+            if device_config:
+                logger.info("Device configuration received.")
+
+                # Use the access token from HTTPSClient
+                self.token = device_config["Token"]
+
+                # Set the token expiration time based on actual token lifetime
+                if hasattr(client, "token_expiration") and client.token_expiration:
+                    self.token_expiration = client.token_expiration
+                else:
+                    # Default to 1 day if no expiration time is provided
+                    self.token_expiration = time.time() + 86400  # 1 day
+                return True
+            else:
+                logger.error(
+                    "Failed to receive device configuration with all credentials."
+                )
+                return False
 
     def is_token_expired(self):
         # Check if the token is expired
@@ -158,7 +162,9 @@ class TokenManager:
                 else:
                     # If authentication failed, raise an error
                     logger.error("Authentication failed during wait.")
-                    raise AuthenticationError("Authentication failed during wait.")
+                    raise HTTPException(
+                        status_code=401, detail="Authentication failed."
+                    )
 
             # Otherwise, start a new authentication
             logger.debug("Starting new authentication process.")
@@ -167,9 +173,9 @@ class TokenManager:
                 await self.authenticate()
                 logger.debug("Authentication process completed, returning token.")
                 return self.token
-            except AuthenticationError as e:
-                logger.error(f"Authentication error: {e}")
-                raise
+            except HTTPException as e:
+                logger.error("Error during authentication.")
+                raise e
 
     async def is_authenticated(self):
         return self.state == "Authenticated"

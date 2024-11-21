@@ -2,7 +2,6 @@ import configparser
 from fastapi import FastAPI, Depends, HTTPException
 from starlette.middleware.cors import CORSMiddleware
 from src.clients.token_manager import TokenManager
-from src.errors.authentication_error import AuthenticationError
 from src.models.request_models import MessageRequest
 from src.clients.restaurant_client import RestaurantClient
 from src.clients.mock_restaurant_client import RestaurantMockClient
@@ -57,7 +56,7 @@ def get_order_processor_chain() -> OrderProcessorChain:
 
 
 def handle_request_exception(e: Exception):
-    if isinstance(e, AuthenticationError):
+    if hasattr(e, "status_code") and e.status_code == 401:
         logger.error(f"Authentication error: {e}")
         raise HTTPException(
             status_code=401, detail="Smart Connect Authentication Error"

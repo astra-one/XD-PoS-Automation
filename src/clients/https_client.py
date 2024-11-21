@@ -1,25 +1,17 @@
-from datetime import datetime, timedelta
-import hashlib
-import uuid
 import requests
-from requests.exceptions import HTTPError, ConnectionError, Timeout, RequestException
 import base64
 import socket
 import json
-import logging
-
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
-)
-logger = logging.getLogger(__name__)
+import uuid
+import random
+from datetime import datetime, timedelta, timezone
 
 
 class HTTPSClient:
     _instance = None  # Class-level variable to hold the singleton instance
 
     def __new__(cls, *args, **kwargs):
-        if not cls._instance:
+        if cls._instance is None:
             cls._instance = super(HTTPSClient, cls).__new__(cls)
         return cls._instance
 
@@ -27,7 +19,6 @@ class HTTPSClient:
         if not hasattr(self, "_initialized"):
             self.base_url = base_url
             self.auth_url = f"{self.base_url}/oauth/token"
-            self.credentials_url = f"{self.base_url}/myxdcredentials"
             self.access_token = None
             self.port = 8978
 
@@ -42,10 +33,9 @@ class HTTPSClient:
 
             self._initialized = True  # Flag to prevent re-initialization
 
-    def authenticate(
-        self, username: str, password: str, client_id: str, client_secret: str
-    ) -> bool:
-        """Authenticate and retrieve an access token."""
+    def authenticate(self, username, password, client_id, client_secret):
+        """Send the OAuth authentication request and receive the access token."""
+
         client_credentials = f"{client_id}:{client_secret}"
         encoded_credentials = base64.b64encode(client_credentials.encode()).decode(
             "utf-8"
@@ -64,104 +54,106 @@ class HTTPSClient:
         }
 
         try:
-            logger.info("Starting authentication process...")
-            response = requests.post(
-                self.auth_url, headers=headers, data=auth_data, timeout=10
-            )
-            response.raise_for_status()  # Raises HTTPError for bad responses
+            response = requests.post(self.auth_url, headers=headers, data=auth_data)
 
-            token = response.json().get("access_token")
+            if response.status_code == 200:
+                token = response.json().get("access_token")
 
-            if token:
-                self.access_token = token
-                logger.info("[Client] Access token received.")
-                return True
+                if token:
+                    self.access_token = token
+                    print(f"[Client] Access token received: {self.access_token}")
+                    return True
+                else:
+                    print("[Client] Authentication failed or token not found.")
             else:
-                logger.error("[Client] Authentication failed or token not found.")
-                return False
+                print(
+                    f"[Client] Authentication failed with status code {response.status_code}"
+                )
 
-        except HTTPError as http_err:
-            logger.error(f"[Client] HTTP error occurred: {http_err}")
-        except ConnectionError:
-            logger.error("[Client] Connection error. Please check your network.")
-        except Timeout:
-            logger.error("[Client] Request timed out.")
-        except RequestException as req_err:
-            logger.error(f"[Client] Request exception: {req_err}")
-        except Exception as e:
-            logger.error(f"[Client] An unexpected error occurred: {e}", exc_info=True)
+        except requests.exceptions.RequestException as e:
+            print(f"[Client] An error occurred: {e}")
 
         return False
 
-    def create_new_credential(self, username_app: str, password_app: str):
-        """Create a new credential and obtain its authorization code."""
+    def match_credentials(self, username, password):
+        """Send a request to match credentials."""
         if not self.access_token:
-            logger.error("[Client] Error: You must authenticate first.")
+            print("[Client] Error: You must authenticate first.")
             return None
 
+        url = f"{self.base_url}/myxdcredentials/match"
         headers = {
             "Authorization": f"Bearer {self.access_token}",
             "Content-Type": "application/json",
         }
 
-        expiration_date_ms = int(
-            (datetime.utcnow() + timedelta(days=1)).timestamp() * 1000
-        )
-
-        credentials_id = str(uuid.uuid4())
-        terminal = 1  # Replace with actual terminal number if needed
-
-        authorization_code = self.generate_authorization(
-            username_app, terminal, credentials_id
-        )
-
-        payload = {
-            "CredentialId": credentials_id,
-            "Username": username_app,
-            "Password": password_app,
-            "Terminal": terminal,
-            "Authorization": authorization_code,
-            "ExpirationDate": expiration_date_ms,
-            "Device": None,
-            "Type": 1,
-            "Active": False,
-            "ModelType": "XDPeople.Entities.MyXDCredentials, XDPeople.NET, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null",
+        match_data = {
+            "user": username,
+            "pass": password,
+            "appType": "1",  # Replace this with the actual appType value if necessary
         }
 
         try:
-            logger.info("Creating a new credential...")
-            response = requests.post(
-                self.credentials_url, headers=headers, json=payload, timeout=10
-            )
-            response.raise_for_status()  # Raises HTTPError for bad responses
-            logger.info("[Client] New credential created successfully.")
+            response = requests.post(url, json=match_data, headers=headers)
 
-            credential = response.json()
-            self.selected_credential_id = credential.get("credentialId")
-            self.selected_authorization = credential.get("authorization")
-            return credential
+            if response.status_code == 200:
+                credentials = response.json()
+                # self.format_credentials(credentials)
+                return credentials
+            else:
+                print(
+                    f"[Client] Failed to match credentials with status code {response.status_code}"
+                )
 
-        except HTTPError as http_err:
-            logger.error(f"[Client] HTTP error occurred: {http_err}")
-        except ConnectionError:
-            logger.error("[Client] Connection error. Please check your network.")
-        except Timeout:
-            logger.error("[Client] Request timed out.")
-        except RequestException as req_err:
-            logger.error(f"[Client] Request exception: {req_err}")
-        except Exception as e:
-            logger.error(
-                f"[Client] An unexpected error occurred: {e}", exc_info=True
-            )
+        except requests.exceptions.RequestException as e:
+            print(f"[Client] An error occurred during credential matching: {e}")
+            return None
 
-        return None
+    def format_credentials(self, credentials):
+        """Format the matched credentials for better readability."""
+        print("\n[Client] Matched Credentials:")
+        for idx, credential in enumerate(credentials):
+            print(f"\nCredential {idx + 1}:")
+            print(f"  Credential ID    : {credential.get('credentialId')}")
+            print(f"  Username         : {credential.get('username')}")
+            print(f"  Terminal         : {credential.get('terminal')}")
+            print(f"  Authorization    : {credential.get('authorization')}")
+            print(f"  Expiration Date  : {credential.get('expirationDate')}")
+            print(f"  Active           : {credential.get('active')}")
+            print(f"  Type             : {credential.get('type')}")
+            print("-" * 50)
+
+    def select_active_credential(self, credentials):
+        """Select the first credential from the list where 'active' is True."""
+        for credential in credentials:
+            if credential.get("active"):
+                # Store the selected credential details in class variables
+                self.selected_credential_id = credential.get("credentialId")
+                self.selected_username = credential.get("username")
+                self.selected_terminal = credential.get("terminal")
+                self.selected_authorization = credential.get("authorization")
+                self.selected_expiration_date = credential.get("expirationDate")
+                self.selected_active = credential.get("active")
+                self.selected_type = credential.get("type")
+
+                print(
+                    f"\n[Client] Active Credential {self.selected_credential_id} selected:"
+                )
+                print(f"  Username         : {self.selected_username}")
+                print(f"  Terminal         : {self.selected_terminal}")
+                print(f"  Authorization    : {self.selected_authorization}")
+                print(f"  Expiration Date  : {self.selected_expiration_date}")
+                print(f"  Active           : {self.selected_active}")
+                print(f"  Type             : {self.selected_type}")
+                return True
+
+        print("[Client] No active credentials found.")
+        return False
 
     def request_device_configuration(self):
-        """Request device configuration over UDP using the new credential."""
+        """Request device configuration over UDP using selected credentials."""
         if not self.selected_authorization:
-            logger.error(
-                "[Client] Error: No authorization code. Create a credential first."
-            )
+            print("[Client] Error: No authorization code. Select a credential first.")
             return None
 
         udp_socket = None
@@ -187,7 +179,7 @@ class HTTPSClient:
             udp_socket.settimeout(5)  # Timeout after 5 seconds
             udp_socket.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
 
-            # Send the device auth request to the broadcast address on port 8978
+            # Send the device auth request to the broadcast address (255.255.255.255) on port 8978
             udp_socket.sendto(message_bytes, ("255.255.255.255", self.port))
 
             # Receive the response
@@ -196,33 +188,273 @@ class HTTPSClient:
 
             # Parse the response as a DeviceConfiguration
             device_configuration = json.loads(response_message)
-            logger.info("[Client] Device configuration received.")
+            print("[Client] Device configuration received:", device_configuration)
+
+            # You can now save or process the `device_configuration` as needed
             return device_configuration
 
         except socket.timeout:
-            logger.error("[Client] Error: Request timed out.")
-        except socket.error as sock_err:
-            logger.error(f"[Client] Socket error: {sock_err}")
+            print("[Client] Error: Request timed out.")
         except Exception as e:
-            logger.error(
-                f"[Client] Error occurred while requesting device configuration: {e}",
-                exc_info=True,
-            )
+            print(f"[Client] Error occurred while requesting device configuration: {e}")
         finally:
             if udp_socket:
                 udp_socket.close()
-                logger.info("[Client] UDP socket closed.")
+                print("[Client] UDP socket closed.")
 
         return None
 
-    @staticmethod
-    def generate_authorization(username, terminal, credential_id):
-        # Concatenate the fields in a specific order
-        data = f"{username}{terminal}{credential_id}"
+    def select_random_credential(self, credentials):
+        """Randomly select a credential from the list."""
+        if not credentials:
+            print("[Client] No credentials available to select from.")
+            return False
 
-        # Hash the concatenated string using MD5
-        authorization = hashlib.md5(data.encode()).hexdigest()
-        return authorization
+        # Randomly select a credential
+        random_credential = random.choice(credentials)
+
+        # Store the selected credential details in class variables
+        self.selected_credential_id = random_credential.get("credentialId")
+        self.selected_username = random_credential.get("username")
+        self.selected_terminal = random_credential.get("terminal")
+        self.selected_authorization = random_credential.get("authorization")
+        self.selected_expiration_date = random_credential.get("expirationDate")
+        self.selected_active = random_credential.get("active")
+        self.selected_type = random_credential.get("type")
+
+        print(f"\n[Client] Random Credential {self.selected_credential_id} selected:")
+        print(f"  Username         : {self.selected_username}")
+        print(f"  Terminal         : {self.selected_terminal}")
+        print(f"  Authorization    : {self.selected_authorization}")
+        print(f"  Expiration Date  : {self.selected_expiration_date}")
+        print(f"  Active           : {self.selected_active}")
+        print(f"  Type             : {self.selected_type}")
+        return True
+
+    def select_by_id(self, credentials, credential_id):
+        """Select a credential by its ID."""
+        for credential in credentials:
+            if credential.get("credentialId") == credential_id:
+                # Store the selected credential details in class variables
+                self.selected_credential_id = credential.get("credentialId")
+                self.selected_username = credential.get("username")
+                self.selected_terminal = credential.get("terminal")
+                self.selected_authorization = credential.get("authorization")
+                self.selected_expiration_date = credential.get("expirationDate")
+                self.selected_active = credential.get("active")
+                self.selected_type = credential.get("type")
+
+                print(f"\n[Client] Credential {self.selected_credential_id} selected:")
+                print(f"  Username         : {self.selected_username}")
+                print(f"  Terminal         : {self.selected_terminal}")
+                print(f"  Authorization    : {self.selected_authorization}")
+                print(f"  Expiration Date  : {self.selected_expiration_date}")
+                print(f"  Active           : {self.selected_active}")
+                print(f"  Type             : {self.selected_type}")
+                return True
+
+        print(f"[Client] No credential found with ID {credential_id}.")
+        return False
+
+    
+    from datetime import datetime, timedelta, timezone
+
+    def try_all_credentials_until_success(self, credentials):
+        """Try each credential, starting with the newest, until one returns a successful device configuration."""
+
+        # Get current UTC time as a timezone-aware datetime (current day, now)
+        current_time = datetime.now(timezone.utc)
+
+        # Filter and sort the credentials by expiration date
+        sorted_credentials = [
+            cred for cred in credentials
+            # Check if the expiration date is greater than or equal to the current time
+            if datetime.fromtimestamp(cred.get("expirationDate", 0) / 1000, tz=timezone.utc) >= current_time
+        ]
+        
+        # Sort credentials by expiration date, from newest to oldest
+        sorted_credentials.sort(key=lambda cred: cred.get("expirationDate", 0), reverse=True)
+
+        print(f"Credentials after filtering for expiration after {current_time}:")
+
+        try:
+            for credential in sorted_credentials:
+                # Store the selected credential details in class variables
+                self.selected_credential_id = credential.get("credentialId")
+                self.selected_username = credential.get("username")
+                self.selected_terminal = credential.get("terminal")
+                self.selected_authorization = credential.get("authorization")
+                self.selected_expiration_date = credential.get("expirationDate")
+                self.selected_active = credential.get("active")
+                self.selected_type = credential.get("type")
+
+                formatted_expiration_date = datetime.fromtimestamp(self.selected_expiration_date / 1000, tz=timezone.utc)
+                
+                # Attempt to request device configuration
+                # device_config = self.request_device_configuration()
+                # if device_config:
+                    # print("Device configuration received:", device_config)
+                    # return device_config
+
+            print("[Client] No credentials succeeded in requesting device configuration.")
+            return None
+
+        except KeyboardInterrupt:
+            print("\n[Client] Operation interrupted by user.")
+            return None
+            
+    def select_by_latest_expiration(self, credentials):
+        """Select the credential with the largest expiration date (as an integer)."""
+        latest_credential = None
+        latest_expiration_date = None
+
+        for credential in credentials:
+            expiration_date = credential.get("expirationDate")
+
+            # Check if expiration_date exists and is an integer
+            if isinstance(expiration_date, int):
+                if (
+                    latest_expiration_date is None
+                    or expiration_date > latest_expiration_date
+                ):
+                    latest_expiration_date = expiration_date
+                    latest_credential = credential
+
+        if latest_credential:
+            # Store the selected credential details in class variables
+            self.selected_credential_id = latest_credential.get("credentialId")
+            self.selected_username = latest_credential.get("username")
+            self.selected_terminal = latest_credential.get("terminal")
+            self.selected_authorization = latest_credential.get("authorization")
+            self.selected_expiration_date = latest_expiration_date
+            self.selected_active = latest_credential.get("active")
+            self.selected_type = latest_credential.get("type")
+
+            print(f"\n[Client] Credential with latest expiration date selected:")
+            print(f"  Credential ID    : {self.selected_credential_id}")
+            print(f"  Username         : {self.selected_username}")
+            print(f"  Terminal         : {self.selected_terminal}")
+            print(f"  Authorization    : {self.selected_authorization}")
+            print(f"  Expiration Date  : {self.selected_expiration_date}")
+            print(f"  Active           : {self.selected_active}")
+            print(f"  Type             : {self.selected_type}")
+            return True
+
+        print("[Client] No credentials found with valid expiration dates.")
+        return False
+
+    def add_credentials(self):
+        """Generate new credentials and send a POST request to add them to the server."""
+        if not self.access_token:
+            print("[Client] Error: You must authenticate first.")
+            return None
+
+        url = f"{self.base_url}/myxdcredentials"
+        headers = {
+            "Authorization": f"Bearer {self.access_token}",
+            "Content-Type": "application/json",
+        }
+
+        try:
+            # Generate new credential details
+            credential_id = str(uuid.uuid4())  # Generate unique credential ID
+            username = "XDBR.105112"  # Fixed username
+            password = "new_password"  # Could be dynamically set
+            terminal = 1  # Fixed terminal as requested
+            authorization = str(uuid.uuid4().hex)  # Generate random authorization code
+            expiration_date = int(
+                (datetime.now() + timedelta(days=365)).timestamp() * 1000
+            )  # Expiration date one year from now in milliseconds
+            active = False  # Fixed to False
+            type = 1  # Fixed to 1
+
+            credentials_data = {
+                "credentialId": credential_id,
+                "username": username,
+                "password": password,
+                "terminal": terminal,
+                "authorization": authorization,
+                "expirationDate": expiration_date,
+                "active": active,
+                "type": type,
+            }
+
+            response = requests.post(url, headers=headers, json=credentials_data)
+
+            print("Response:", response.json())
+
+            if response.status_code == 200:
+                print(f"[Client] Credentials added successfully:")
+                print(f"  Credential ID    : {credential_id}")
+                print(f"  Username         : {username}")
+                print(f"  Terminal         : {terminal}")
+                print(f"  Authorization    : {authorization}")
+                print(f"  Expiration Date  : {expiration_date}")
+                print(f"  Active           : {active}")
+                print(f"  Type             : {type}")
+                return True
+            else:
+                print(
+                    f"[Client] Failed to add credentials with status code {response.status_code}"
+                )
+
+        except requests.exceptions.RequestException as e:
+            print(f"[Client] An error occurred during credential addition: {e}")
+            return None
+
+def handle_authentication_and_request(
+    username,
+    password,
+    client_id,
+    client_secret,
+    username_app,
+    password_app,
+):
+    """
+    This function handles the full authentication and credential selection process.
+
+    Args:
+        username (str): The username for authentication.
+        password (str): The password for authentication.
+        client_id (str): The client ID for OAuth.
+        client_secret (str): The client secret for OAuth (if required).
+        username_app (str): The username for matching credentials.
+        password_app (str): The password for matching credentials.
+
+    Returns:
+        bool: True if the process completes successfully, False otherwise.
+    """
+    client = HTTPSClient()
+
+    # Step 1: Authenticate
+    success = client.authenticate(username, password, client_id, client_secret)
+    if not success:
+        print("Authentication failed.")
+        return False
+
+    print("Authentication successful!")
+
+    # Step 2: Match credentials
+    matched_credentials = client.match_credentials(username_app, password_app)
+    if not matched_credentials:
+        print("Failed to match credentials.")
+        return False
+
+    print("Credentials matched successfully!")
+
+    # Step 3: Select the credential with the latest expiration date
+    if client.select_by_latest_expiration(matched_credentials):
+        # Step 4: Request device configuration
+        device_config = client.request_device_configuration()
+        if device_config:
+            print("Device configuration received:", device_config)
+            return True
+        else:
+            print("Failed to receive device configuration.")
+            return False
+    else:
+        print("Failed to select credential by latest expiration date.")
+        return False
 
 
 # Usage example
@@ -233,26 +465,17 @@ if __name__ == "__main__":
     username_app = "XDBR.105112"
     password_app = "1234"
     client_id = "mobileapps"
-    client_secret = ""  # Replace with the actual client secret if required
+    client_secret = ""  # If a client secret is required, add it here.
 
-    # Authenticate
-    if client.authenticate(username, password, client_id, client_secret):
-        logger.info("Authentication successful!")
+    handle_authentication_and_request(
+        username, password, client_id, client_secret, username_app, password_app
+    )
+    # Step 1: Authenticate
+    # success = client.authenticate(username, password, client_id, client_secret)
+    # if success:
+    #     print("Authentication successful!")
 
-        # Create a new credential
-        new_credential = client.create_new_credential(username_app, password_app)
-        if new_credential:
-            logger.info("New credential created:")
-            logger.info(new_credential)
-
-            # Request device configuration using the new credential
-            device_config = client.request_device_configuration()
-            if device_config:
-                logger.info("Device configuration received:")
-                logger.info(device_config)
-            else:
-                logger.error("Failed to receive device configuration.")
-        else:
-            logger.error("Failed to create a new credential.")
-    else:
-        logger.error("Authentication failed.")
+    #     # Step 2: Add new credentials
+    #     client.add_credentials()
+    # else:
+    #     print("Authentication failed.")
