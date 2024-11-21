@@ -176,7 +176,7 @@ class HTTPSClient:
 
             # Send the message over UDP
             udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-            udp_socket.settimeout(5)  # Timeout after 5 seconds
+            udp_socket.settimeout(15)  # Timeout after 5 seconds
             udp_socket.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
 
             # Send the device auth request to the broadcast address (255.255.255.255) on port 8978
