@@ -4,6 +4,7 @@ import socket
 import json
 import uuid
 import random
+import time
 from datetime import datetime, timedelta, timezone
 
 
@@ -176,24 +177,28 @@ class HTTPSClient:
 
             # Send the message over UDP
             udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-            udp_socket.settimeout(15)  # Timeout after 5 seconds
+            udp_socket.settimeout(5)  # Shorter timeout for faster response
             udp_socket.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+            udp_socket.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, 255)  # Enable broadcasting
 
+            print("[Client] Sending device auth request...")
             # Send the device auth request to the broadcast address (255.255.255.255) on port 8978
             udp_socket.sendto(message_bytes, ("255.255.255.255", self.port))
-
+            print("[Client] Device auth request sent.")
             # Receive the response
-            response_bytes, _ = udp_socket.recvfrom(32768)  # Buffer size
-            response_message = response_bytes.decode("utf-8").replace("[EOM]", "")
+            start_time = time.time()
+            while time.time() - start_time < 5:  # Timeout after 5 seconds
+                try:
+                    response_bytes, _ = udp_socket.recvfrom(32768)  # Buffer size
+                    response_message = response_bytes.decode("utf-8").replace("[EOM]", "")
+                    
+                    # Parse the response as a DeviceConfiguration
+                    device_configuration = json.loads(response_message)
+                    print("[Client] Device configuration received:", device_configuration)
+                    return device_configuration
+                except socket.timeout:
+                    continue
 
-            # Parse the response as a DeviceConfiguration
-            device_configuration = json.loads(response_message)
-            print("[Client] Device configuration received:", device_configuration)
-
-            # You can now save or process the `device_configuration` as needed
-            return device_configuration
-
-        except socket.timeout:
             print("[Client] Error: Request timed out.")
         except Exception as e:
             print(f"[Client] Error occurred while requesting device configuration: {e}")
@@ -203,7 +208,7 @@ class HTTPSClient:
                 print("[Client] UDP socket closed.")
 
         return None
-
+    
     def select_random_credential(self, credentials):
         """Randomly select a credential from the list."""
         if not credentials:
