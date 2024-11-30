@@ -36,7 +36,7 @@ class RestaurantClient:
     def __init__(self, token_manager):
         if not self.products:
             asyncio.run(self.load_products())
-        self.token_manager : TokenManager = token_manager
+        self.token_manager: TokenManager = token_manager
 
     async def load_products(self):
         """Load products and store them in the cache."""
@@ -155,7 +155,7 @@ class RestaurantClient:
                 status_code=500, detail=f"Failed to fetch tables: {str(e)}"
             )
 
-    async def post_queue(self, table_id: int) -> str:
+    async def prebill(self, table_id: int) -> str:
         """Send a POSTQUEUE message to close a table's order."""
         try:
             table_content = await self.fetch_table_content(table_id)
@@ -165,7 +165,7 @@ class RestaurantClient:
                     status_code=404, detail="No orders found for the table."
                 )
 
-            message = await self.message_builder.build_post_queue_message(
+            message = await self.message_builder.build_prebill_message(
                 employee_id=int(self.USER_ID), table=table_id, orders=orders
             )
             response = await self._send_message(message)
@@ -181,6 +181,8 @@ class RestaurantClient:
             raise HTTPException(
                 status_code=500, detail=f"Failed to post queue: {str(e)}"
             )
+        
+    
 
     async def close_table(self, table_id: int) -> str:
         """Send a POSTQUEUE message to close the table after payment."""
@@ -188,6 +190,7 @@ class RestaurantClient:
             message = await self.message_builder.build_close_table_message(
                 employee_id=int(self.USER_ID), table=table_id
             )
+            print("Close Table Message: ", message)
             response = await self._send_message(message)
 
             if not response:
@@ -201,6 +204,7 @@ class RestaurantClient:
             raise HTTPException(
                 status_code=500, detail=f"Failed to close table: {str(e)}"
             )
+    
 
     @staticmethod
     def _extract_field(response: str, field_identifier: str) -> str:

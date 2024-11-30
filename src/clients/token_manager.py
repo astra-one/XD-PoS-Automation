@@ -26,9 +26,11 @@ class TokenManager:
 
     def __init__(self, use_mock: bool = False, url: str = "http://localhost:8001"):
         if not hasattr(self, "_initialized"):
-            self.token: Optional[str] = None
-            self.token_expiration: Optional[float] = None  # Epoch time
-            self.state = "Unauthenticated"
+            self.token: Optional[str] = "2303f7151277619805e2f42f85c01661f9f98768"
+            # self.token: Optional[str] = None
+            self.token_expiration: Optional[int] = int((datetime.now() + timedelta(days=1)).timestamp() * 1000)
+            # self.token_expiration: Optional[int] = None
+            self.state = "Authenticated" if self.token else "Unauthenticated"
             self.token_lock = asyncio.Lock()  # For async token access
             self.use_mock = use_mock
             self._initialized = True  # Prevent re-initialization
