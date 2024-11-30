@@ -3,6 +3,7 @@ import json
 from threading import Lock
 from typing import Dict, List, Optional
 import uuid
+import time
 
 from ..clients.token_manager import TokenManager
 
@@ -68,19 +69,50 @@ class MessageBuilder:
 
         # Add common parameters
         parameters[self.MESSAGE_TYPE_KEY] = message_type
-        parameters[self.USER_ID_KEY] = self.user_id
         parameters[self.TOKEN_KEY] = await self.token_manager.get_token()
-        parameters[self.PROTOCOL_VERSION_ID] = self.protocol_version
 
-        # Construct the message
-        message_components = [message_identifier]
-        for key, value in parameters.items():
-            message_components.append(self.add_message_parameter(key, value))
-        message_components.append(self.END_OF_MESSAGE)
+        if message_identifier != self.MESSAGE_IDENTIFIER_POST_QUEUE:
+            parameters[self.USER_ID_KEY] = self.user_id
+            parameters[self.PROTOCOL_VERSION_ID] = self.protocol_version
+            # Construct the message
+            message_components = [message_identifier]
+            for key, value in parameters.items():
+                message_components.append(self.add_message_parameter(key, value))
+            message_components.append(self.END_OF_MESSAGE)
+        else:
+            # For POSTQUEUE, build message with specific order and parameters
+            # Ensure PROTOCOLVERSION is '2' and appears before QUEUE
+            if self.PROTOCOL_VERSION_ID not in parameters:
+                parameters[self.PROTOCOL_VERSION_ID] = "2"
+            message_components = [message_identifier]
+            message_components.append(
+                self.add_message_parameter(
+                    self.PROTOCOL_VERSION_ID, parameters[self.PROTOCOL_VERSION_ID]
+                )
+            )
+            message_components.append(
+                self.add_message_parameter("QUEUE", parameters["QUEUE"])
+            )
+            message_components.append(
+                self.add_message_parameter(self.TOKEN_KEY, parameters[self.TOKEN_KEY])
+            )
+            message_components.append(
+                self.add_message_parameter(
+                    self.MESSAGE_TYPE_KEY, parameters[self.MESSAGE_TYPE_KEY]
+                )
+            )
+            message_components.append(
+                self.add_message_parameter(
+                    self.MESSAGE_ID_KEY, parameters[self.MESSAGE_ID_KEY]
+                )
+            )
+            message_components.append(self.END_OF_MESSAGE)
 
         return "".join(message_components)
 
-    async def build_get_board_content(self, board_id: str, request_type: int = 1) -> str:
+    async def build_get_board_content(
+        self, board_id: str, request_type: int = 1
+    ) -> str:
         """
         Constructs the GETBOARDCONTENT message.
 
@@ -101,7 +133,7 @@ class MessageBuilder:
             parameters=parameters,
         )
 
-    async def build_post_queue_message(
+    async def build_prebill_message(
         self,
         employee_id: int,
         table: int,
@@ -109,23 +141,80 @@ class MessageBuilder:
         guid: Optional[str] = None,
     ) -> str:
         """
-        Constructs the POSTQUEUE message with a base64-encoded queue.
+        {"appVersion":0,"employeeId":6,"guid":"8ec412c1-475e-45d3-a224-f3fdfaecb9d0","id":8,"orders":[],"personsNumber":0,"status":1,"table":23,"time":1732307545937,"Action":3}
+        """
+
+        queue_data = {
+            "appVersion": 0,
+            "employeeId": employee_id,
+            "guid": guid or str(uuid.uuid4()),
+            "id": 8,
+            "orders": [],
+            "personsNumber": 0,
+            "status": 1,
+            "table": table,
+            "time": int(time.time() * 1000),
+            "Action": 3,
+        }
+        queue_encoded = self._encode_queue(queue_data)
+
+        parameters = {
+            "QUEUE": queue_encoded,
+            "PROTOCOLVERSION": "2",  # Ensure protocol version is explicitly added
+        }
+
+        return await self.build_message(
+            message_identifier=self.MESSAGE_IDENTIFIER_POST_QUEUE,
+            message_type=self.MESSAGE_TYPE_POST_ACTION,
+            parameters=parameters,
+        )
+
+    async def build_add_item_message(
+        self,
+        employee_id: int,
+        table: int,
+        orders: List[Dict],
+        guid: Optional[str] = None,
+    ) -> str:
+        """
+        Constructs the POSTQUEUE message to add items to a table.
 
         Args:
             employee_id (int): The ID of the employee (same as USER_ID).
-            table (int): The ID of the table being closed.
-            orders (list): A list of orders for the table.
+            table (int): The ID of the table to add items to.
+            orders (List[Dict]): A list of orders to add to the table.
             guid (str, optional): A unique identifier for the transaction. If not provided, a new UUID will be generated.
 
         Returns:
-            str: The constructed POSTQUEUE message string.
+            str: The constructed POSTQUEUE message string to add items to the table.
         """
+
+        def transform_order(order: Dict) -> Dict:
+            """Transforms the order dictionary to match the expected format."""
+            return {
+                "completed": order.get("completed", False),
+                "employee": order.get("employee", 0),
+                "id": order.get("id", 0),
+                "itemId": order.get("itemId", ""),
+                "itemType": order.get("itemType", 0),
+                "lineDiscount": order.get("lineDiscount", 0.0),
+                "lineLevel": order.get("lineLevel", 0),
+                "parentPosition": order.get("parentPosition", -1),
+                "price": order.get("price", 0.0),
+                "quantity": order.get("quantity", 1.0),
+                "ratio": order.get("ratio", 1),
+                "time": 0,
+                "total": order.get("total", 0.0),
+            }
+
+        transformed_orders = [transform_order(order) for order in orders]
+
         queue_data = {
             "appVersion": 0,
             "employeeId": employee_id,
             "guid": guid or str(uuid.uuid4()),
             "id": 4,
-            "orders": orders,
+            "orders": transformed_orders,
             "personsNumber": 1,
             "status": 1,
             "table": table,
@@ -137,6 +226,7 @@ class MessageBuilder:
 
         parameters = {
             "QUEUE": queue_encoded,
+            "PROTOCOLVERSION": "2",  # Ensure protocol version is explicitly added
         }
 
         return await self.build_message(
@@ -158,23 +248,28 @@ class MessageBuilder:
 
         Returns:
             str: The constructed POSTQUEUE message string to close the table.
+
+        {"additionalInfo":"1","appVersion":0,"customerData":{},"employeeId":6,"guid":"4006f9f1-559a-4e7c-a4af-8ceff8ee1ab1","id":13,"orders":[],"personsNumber":0,"status":1,"table":23,"time":1732308707602,"Action":4}
         """
         queue_data = {
             "appVersion": 0,
+            "additionalInfo": "1",
+            "customerData": {},
             "employeeId": employee_id,
             "guid": guid or str(uuid.uuid4()),
-            "id": 5,
+            "id": 13,
             "orders": [],
             "personsNumber": 0,
             "status": 1,
             "table": table,
             "time": int(time.time() * 1000),
-            "Action": 3,
+            "Action": 4,
         }
         queue_encoded = self._encode_queue(queue_data)
 
         parameters = {
             "QUEUE": queue_encoded,
+            "PROTOCOLVERSION": "2",  # Ensure protocol version is explicitly added
         }
 
         return await self.build_message(
