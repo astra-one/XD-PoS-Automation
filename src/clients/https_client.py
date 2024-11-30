@@ -179,22 +179,28 @@ class HTTPSClient:
             udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             udp_socket.settimeout(5)  # Shorter timeout for faster response
             udp_socket.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-            udp_socket.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, 255)  # Enable broadcasting
+            udp_socket.setsockopt(
+                socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, 255
+            )  # Enable broadcasting
 
             print("[Client] Sending device auth request...")
             # Send the device auth request to the broadcast address (255.255.255.255) on port 8978
-            udp_socket.sendto(message_bytes, ('192.168.15.100', self.port))
+            udp_socket.sendto(message_bytes, ("192.168.15.100", self.port))
             print("[Client] Device auth request sent.")
             # Receive the response
             start_time = time.time()
             while time.time() - start_time < 5:  # Timeout after 5 seconds
                 try:
                     response_bytes, _ = udp_socket.recvfrom(32768)  # Buffer size
-                    response_message = response_bytes.decode("utf-8").replace("[EOM]", "")
-                    
+                    response_message = response_bytes.decode("utf-8").replace(
+                        "[EOM]", ""
+                    )
+
                     # Parse the response as a DeviceConfiguration
                     device_configuration = json.loads(response_message)
-                    print("[Client] Device configuration received:", device_configuration)
+                    print(
+                        "[Client] Device configuration received:", device_configuration
+                    )
                     return device_configuration
                 except socket.timeout:
                     continue
@@ -208,7 +214,7 @@ class HTTPSClient:
                 print("[Client] UDP socket closed.")
 
         return None
-    
+
     def select_random_credential(self, credentials):
         """Randomly select a credential from the list."""
         if not credentials:
@@ -261,7 +267,6 @@ class HTTPSClient:
         print(f"[Client] No credential found with ID {credential_id}.")
         return False
 
-    
     from datetime import datetime, timedelta, timezone
 
     def try_all_credentials_until_success(self, credentials):
@@ -272,13 +277,19 @@ class HTTPSClient:
 
         # Filter and sort the credentials by expiration date
         sorted_credentials = [
-            cred for cred in credentials
+            cred
+            for cred in credentials
             # Check if the expiration date is greater than or equal to the current time
-            if datetime.fromtimestamp(cred.get("expirationDate", 0) / 1000, tz=timezone.utc) >= current_time
+            if datetime.fromtimestamp(
+                cred.get("expirationDate", 0) / 1000, tz=timezone.utc
+            )
+            >= current_time
         ]
-        
+
         # Sort credentials by expiration date, from newest to oldest
-        sorted_credentials.sort(key=lambda cred: cred.get("expirationDate", 0), reverse=True)
+        sorted_credentials.sort(
+            key=lambda cred: cred.get("expirationDate", 0), reverse=True
+        )
 
         print(f"Credentials after filtering for expiration after {current_time}:")
 
@@ -293,21 +304,33 @@ class HTTPSClient:
                 self.selected_active = credential.get("active")
                 self.selected_type = credential.get("type")
 
-                formatted_expiration_date = datetime.fromtimestamp(self.selected_expiration_date / 1000, tz=timezone.utc)
-                
+                print(f"\n[Client] Credential {self.selected_credential_id} selected:")
+                print(f"  Username         : {self.selected_username}")
+                print(f"  Terminal         : {self.selected_terminal}")
+                print(f"  Authorization    : {self.selected_authorization}")
+                print(f"  Expiration Date  : {self.selected_expiration_date}")
+                print(f"  Active           : {self.selected_active}")
+                print(f"  Type             : {self.selected_type}")
+
+                formatted_expiration_date = datetime.fromtimestamp(
+                    self.selected_expiration_date / 1000, tz=timezone.utc
+                )
+
                 # Attempt to request device configuration
                 device_config = self.request_device_configuration()
                 if device_config:
                     print("Device configuration received:", device_config)
                     return device_config
 
-            print("[Client] No credentials succeeded in requesting device configuration.")
+            print(
+                "[Client] No credentials succeeded in requesting device configuration."
+            )
             return None
 
         except KeyboardInterrupt:
             print("\n[Client] Operation interrupted by user.")
             return None
-            
+
     def select_by_latest_expiration(self, credentials):
         """Select the credential with the largest expiration date (as an integer)."""
         latest_credential = None
@@ -406,6 +429,7 @@ class HTTPSClient:
         except requests.exceptions.RequestException as e:
             print(f"[Client] An error occurred during credential addition: {e}")
             return None
+
 
 def handle_authentication_and_request(
     username,
