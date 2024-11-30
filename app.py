@@ -168,7 +168,7 @@ async def set_payment_status(
     table_id = request.table_id
     try:
         # Send a POSTQUEUE message to set the payment status
-        response = await client.post_queue(table_id)
+        response = await client.prebill(table_id)
         return {"status": "Payment status set successfully", "response": response}
 
     except HTTPException as http_exc:
