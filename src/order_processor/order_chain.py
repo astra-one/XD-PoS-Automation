@@ -133,8 +133,8 @@ class OrderProcessorChain:
         final_message = "\n\n".join(message_parts)
         return final_message
 
-    async def build_and_save_message(self, output_file: str):
-        """Step 3: Builds and saves the enhanced message to a text file."""
+    async def build_and_save_message(self, output_file: str = None):
+        """Step 3: Builds and optionally saves the enhanced message to a text file."""
         message = self.build_message()
 
         # Enhancing message with the model
@@ -144,10 +144,13 @@ class OrderProcessorChain:
 
         enhanced_message = response.content
 
-        with open(output_file, "w", encoding="utf-8") as f:
-            f.write(enhanced_message)
-    
+        # Save to file only if output_file is not None
+        if output_file:
+            with open(output_file, "w", encoding="utf-8") as f:
+                f.write(enhanced_message)
+
         return enhanced_message
+
 
     async def main(self, comanda_text: str, output_file: str) -> str:
         """Main function to execute the chain of tasks with a given comanda string."""
@@ -170,7 +173,7 @@ class OrderProcessorChain:
         print(f"Total com desconto: R$ {self.comanda_data.valor_total_desconto:.2f}")
 
         # Step 3: Build and save the message to a file
-        processed_message =  await self.build_and_save_message(output_file)
+        processed_message =  await self.build_and_save_message()
         return {
             "status": "Message processed successfully",
             "message": processed_message,
