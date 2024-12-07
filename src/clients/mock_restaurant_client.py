@@ -2,11 +2,11 @@ import asyncio
 import uuid
 import random
 import time
-from typing import Dict, List
+from typing import Dict, List, Optional
 from fastapi import HTTPException
 from faker import Faker
 from ..models.entity_models import Product, Table
-from .token_manager import TokenManager  # Assuming token_manager is in the same package
+from .token_manager import TokenManager
 import logging
 
 # Configure logging
@@ -19,6 +19,11 @@ class RestaurantMockClient:
         self.token_manager = token_manager
         self.products = self._load_mock_products()
         self.tables = self._load_mock_tables()
+
+    async def load_products(self):
+        """Mock method to simulate loading products. Here it's already done in __init__."""
+        # Since we're already loading products in __init__, we just pass
+        pass
 
     def _load_mock_products(self) -> Dict[int, Product]:
         """Initialize a large set of mock products with realistic Portuguese names and unique IDs."""
@@ -52,7 +57,7 @@ class RestaurantMockClient:
 
     def _load_mock_tables(self) -> List[Table]:
         """Initialize 100 mock tables with random statuses and attributes."""
-        statuses = [1, 1, 2]  # 0: Available, 1: Occupied, 2: Reserved
+        statuses = [1, 1, 2]  # 1: Occupied, 2: Reserved (varied distribution)
         mock_tables = []
         for i in range(1, 100):  # 100 tables
             table = Table(
@@ -70,12 +75,7 @@ class RestaurantMockClient:
     async def fetch_table_content(self, table_id: int) -> Dict:
         """
         Mock method to fetch table content with random orders.
-
-        Args:
-            table_id (int): The ID of the table.
-
-        Returns:
-            Dict: Mocked table content.
+        This simulates what fetch_table_content does in RestaurantClient.
         """
         # Simulate token validation
         await self.token_manager.get_token()
@@ -143,10 +143,7 @@ class RestaurantMockClient:
 
     async def fetch_tables(self) -> List[Table]:
         """
-        Mock method to fetch a list of tables.
-
-        Returns:
-            List[Table]: A list of mocked Table objects.
+        Mock method to fetch a list of tables, simulating what fetch_tables does in RestaurantClient.
         """
         # Simulate token validation
         await self.token_manager.get_token()
@@ -154,21 +151,17 @@ class RestaurantMockClient:
             logger.warning("Token expired.")
             raise HTTPException(status_code=401, detail="Token expired")
 
-        await asyncio.sleep(
-            random.uniform(0.05, 0.2)
-        )  # Simulate asynchronous operation
+        await asyncio.sleep(random.uniform(0.05, 0.2))  # Simulate asynchronous operation
         logger.debug("Tables fetched.")
         return self.tables
 
-    async def post_queue(self, table_id: int) -> str:
+    async def prebill(self, table_id: int) -> str:
         """
-        Mock method to simulate posting to the queue.
-
-        Args:
-            table_id (int): The ID of the table.
-
-        Returns:
-            str: Success message.
+        Mock method to simulate the prebill action.
+        Similar logic to RestaurantClient's prebill method:
+        - Fetch table content
+        - If no orders, 404
+        - Otherwise, simulate posting the queue and return success.
         """
         # Simulate token validation
         await self.token_manager.get_token()
@@ -176,27 +169,21 @@ class RestaurantMockClient:
             logger.warning("Token expired.")
             raise HTTPException(status_code=401, detail="Token expired")
 
-        if table_id < 1 or table_id > len(self.tables):
-            raise HTTPException(status_code=404, detail="Mesa não encontrada.")
+        content = await self.fetch_table_content(table_id)
+        orders = content.get("content", [])
+        if not orders:
+            raise HTTPException(status_code=404, detail="No orders found for the table.")
 
-        # Simulate updating table status to Reserved
-        self.tables[table_id - 1].status = 2  # Reserved
+        # Simulate that the table moves to a 'reserved' state (like a prebill state)
+        self.tables[table_id - 1].status = 2
         self.tables[table_id - 1].freeTable = False
-        await asyncio.sleep(
-            random.uniform(0.05, 0.2)
-        )  # Simulate asynchronous operation
-        logger.info(f"Queue posted for table {table_id}.")
-        return "Fila postada com sucesso."
+        await asyncio.sleep(random.uniform(0.05, 0.2))  # Simulate asynchronous operation
+        logger.info(f"Prebill posted for table {table_id}.")
+        return "Pré-conta gerada com sucesso."
 
     async def close_table(self, table_id: int) -> str:
         """
-        Mock method to simulate closing a table.
-
-        Args:
-            table_id (int): The ID of the table.
-
-        Returns:
-            str: Success message.
+        Mock method to simulate closing a table, as per the close_table method in RestaurantClient.
         """
         # Simulate token validation
         await self.token_manager.get_token()
@@ -207,11 +194,9 @@ class RestaurantMockClient:
         if table_id < 1 or table_id > len(self.tables):
             raise HTTPException(status_code=404, detail="Mesa não encontrada.")
 
-        # Simulate closing the table
+        # Simulate closing the table (making it available again)
         self.tables[table_id - 1].status = 0  # Available
         self.tables[table_id - 1].freeTable = True
-        await asyncio.sleep(
-            random.uniform(0.05, 0.2)
-        )  # Simulate asynchronous operation
+        await asyncio.sleep(random.uniform(0.05, 0.2))  # Simulate asynchronous operation
         logger.info(f"Table {table_id} closed.")
         return "Mesa fechada com sucesso."
