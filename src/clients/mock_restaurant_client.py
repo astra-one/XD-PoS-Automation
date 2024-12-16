@@ -98,12 +98,12 @@ class RestaurantMockClient:
                 "globalDiscount": 0.0,
             }
 
-        num_orders = random.randint(1, 10)
+        num_orders = random.randint(1, 2)
         order_content = []
         total = 0.0
         for _ in range(num_orders):
             product = random.choice(list(self.products.values()))
-            quantity = random.randint(1, 5)
+            quantity = random.randint(1, 2)
             price = round(random.uniform(20.0, 100.0), 2)
             total_price = round(quantity * price, 2)
             order = {
