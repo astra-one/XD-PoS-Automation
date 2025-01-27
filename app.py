@@ -118,7 +118,6 @@ async def create_board_message(
 
 @app.post("load/products/")
 async def load_products(
-    request: MessageRequest,
     client: RestaurantClient = Depends(get_restaurant_client),
 ):
     """
