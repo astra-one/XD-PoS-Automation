@@ -78,6 +78,21 @@ class RestaurantClient:
             logger.error(f"Failed to load products: {e}", exc_info=True)
             raise
 
+    async def _fetch_product(self, product_id: str) -> Optional[Product]:
+        """Fetch a product from the cache by ID, reloading if necessary."""
+        if not self.products:
+            logger.warning("Product cache is empty. Attempting to reload products.")
+            try:
+                await self.load_products()
+            except Exception as e:
+                logger.error(f"Failed to reload products: {e}", exc_info=True)
+                return None
+
+        product = self.products.get(product_id)
+        if not product:
+            logger.warning(f"Product not found in cache for product_id: {product_id}")
+        return product
+
     async def _fetch_data_list(self, object_type: str, model_class: Type) -> List:
         """Generic method to fetch a list of data from the server via TCP."""
         message = await self.message_builder.build_get_data_list(
@@ -171,7 +186,8 @@ class RestaurantClient:
             )
             logger.debug(f"Raw table content: {table_content}")
 
-            self._enrich_table_content_with_product_names(table_content)
+            # Call the enriched method (updated to use _fetch_product)
+            await self._enrich_table_content_with_product_names(table_content)
             logger.info(f"Enriched table content for table ID {table_id}.")
             return table_content
         except Exception as e:
@@ -188,15 +204,18 @@ class RestaurantClient:
         logger.debug(f"Decoded field '{field_identifier}': {decoded}")
         return decoded
 
-    def _enrich_table_content_with_product_names(self, table_content: Dict):
+    async def _enrich_table_content_with_product_names(self, table_content: Dict):
         """Enrich the table content with product names using the product cache."""
         logger.debug("Enriching table content with product names.")
         for item in table_content.get("content", []):
             item_id = item.get("itemId")
-            product = self.products.get(str(item_id)) if item_id else None
+            if not item_id:
+                logger.warning("Item ID is missing in table content.")
+                item["itemName"] = "Unknown Product"
+                continue
+
+            product = await self._fetch_product(str(item_id))
             item["itemName"] = product.name if product else "Unknown Product"
-            if not product:
-                logger.warning(f"Product not found for itemId: {item_id}")
 
     async def fetch_tables(self) -> List[Table]:
         """Fetch a list of tables from the server via TCP."""
