@@ -116,6 +116,23 @@ async def create_board_message(
         handle_request_exception(e)
 
 
+@app.post("load/products/")
+async def load_products(
+    request: MessageRequest,
+    client: RestaurantClient = Depends(get_restaurant_client),
+):
+    """
+    Endpoint to load products from a file.
+    """
+    try:
+        # Load products from file
+        response = await client.load_products()
+        return response
+
+    except Exception as e:
+        handle_request_exception(e)
+
+
 @app.post("/order/")
 async def get_order_by_id(
     request: MessageRequest,
