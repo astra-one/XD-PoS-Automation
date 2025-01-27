@@ -23,9 +23,7 @@ file_handler = logging.FileHandler("restaurant_client.log")
 file_handler.setLevel(logging.INFO)  # File handler can be set to INFO or higher
 
 # Create formatters and add them to the handlers
-formatter = logging.Formatter(
-    "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-)
+formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 console_handler.setFormatter(formatter)
 file_handler.setFormatter(formatter)
 
@@ -44,10 +42,14 @@ class RestaurantClient:
     TOKEN: str = ""
     LIMIT: int = 5000
 
+    message_builder: MessageBuilder
+    products: Dict[str, Product]
+    token_manager: TokenManager
+
     def __new__(cls, token_manager: TokenManager):
         if cls._instance is None:
             cls._instance = super().__new__(cls)
-            cls._instance.products: Dict[str, Product] = {}
+            cls._instance.products = {}
             cls._instance.message_builder = MessageBuilder(
                 user_id=cls.USER_ID,
                 app_version=cls.APP_VERSION,
@@ -78,7 +80,6 @@ class RestaurantClient:
 
     async def _fetch_data_list(self, object_type: str, model_class: Type) -> List:
         """Generic method to fetch a list of data from the server via TCP."""
-        logger.debug(f"Fetching data list for object type: {object_type}")
         message = await self.message_builder.build_get_data_list(
             object_type=object_type,
             part=0,
@@ -88,22 +89,29 @@ class RestaurantClient:
         response = await self._send_message(message)
 
         if not response:
-            logger.error("No response received from TCP server.")
             raise HTTPException(
                 status_code=500, detail="Failed to receive response from the TCP server"
             )
 
-        logger.debug(f"Fetch Data List Response: {response}")
-
         try:
             encoded_object = self._extract_field(response, "[NP]OBJECT[EQ]")
             decoded_json = self._decode_base64_json(encoded_object)
-            logger.debug(f"Decoded JSON: {decoded_json}")
             return [model_class(**item) for item in decoded_json]
-        except Exception as e:
-            logger.error(
-                f"Failed to decode or process the response: {str(e)}", exc_info=True
+        except ValueError as e:
+            # Verifica se a exceção diz respeito ao campo "[NP]OBJECT[EQ]" não encontrado
+            if "No NP]OBJECT[EQ field found in the response" in str(e):
+                # Marca o token como não autenticado
+                await self.token_manager.set_unauthenticated()
+                raise HTTPException(
+                    status_code=401,
+                    detail="Authentication error: token expired or invalid",
+                )
+            # Se não for esse caso específico, trata como erro genérico
+            raise HTTPException(
+                status_code=500,
+                detail=f"Failed to decode or process the response: {str(e)}",
             )
+        except Exception as e:
             raise HTTPException(
                 status_code=500,
                 detail=f"Failed to decode or process the response: {str(e)}",
@@ -150,7 +158,9 @@ class RestaurantClient:
             response = await self._send_message(message)
 
             if not response:
-                logger.error("No response received from TCP server while fetching table content.")
+                logger.error(
+                    "No response received from TCP server while fetching table content."
+                )
                 raise HTTPException(
                     status_code=500,
                     detail="Failed to receive response from the TCP server",
@@ -221,7 +231,9 @@ class RestaurantClient:
             response = await self._send_message(message)
 
             if not response:
-                logger.error("No response received from TCP server while sending prebill.")
+                logger.error(
+                    "No response received from TCP server while sending prebill."
+                )
                 raise HTTPException(
                     status_code=500,
                     detail="Failed to receive response from the TCP server",
@@ -246,7 +258,9 @@ class RestaurantClient:
             response = await self._send_message(message)
 
             if not response:
-                logger.error("No response received from TCP server while closing table.")
+                logger.error(
+                    "No response received from TCP server while closing table."
+                )
                 raise HTTPException(
                     status_code=500,
                     detail="Failed to receive response from the TCP server",
