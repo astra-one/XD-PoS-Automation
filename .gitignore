@@ -70,3 +70,6 @@ pytest_cache/
 .pyre/
 
 *.ini
+
+# cache or state files
+token_manager_state.json
