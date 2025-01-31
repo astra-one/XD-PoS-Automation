@@ -1,7 +1,9 @@
 import configparser
 from fastapi import FastAPI, Depends, HTTPException
+from pydantic import BaseModel
 from starlette.middleware.cors import CORSMiddleware
 from src.clients.token_manager import TokenManager
+from src.middleware.timing_middleware import TimingMiddleware
 from src.models.request_models import MessageRequest
 from src.clients.restaurant_client import RestaurantClient
 from src.clients.mock_restaurant_client import RestaurantMockClient
@@ -24,6 +26,7 @@ app.add_middleware(
     allow_headers=["*"],  # Allow all headers
 )
 
+app.add_middleware(TimingMiddleware)
 
 def read_config_file(filename):
     config = configparser.ConfigParser()
@@ -38,6 +41,14 @@ def get_token_manager():
     coti_api_url = config.get("coti_cloud_services_url", "http://localhost:8005")
     token_manager = TokenManager(use_mock=use_mock, url=coti_api_url)
     return token_manager
+
+
+class BaseResponse(BaseModel):
+    response_time: float
+
+
+class ValidateAuthResponse(BaseResponse):
+    is_authenticated: bool
 
 
 # Dependency that will create and return the RestaurantClient or RestaurantMockClient instance
@@ -66,14 +77,21 @@ def handle_request_exception(e: Exception):
         raise HTTPException(status_code=500, detail="An unexpected error occurred.")
 
 
-@app.get("/is_authenticated/")
-async def is_authenticated(token_manager: TokenManager = Depends(get_token_manager)):
-    return {"is_authenticated": await token_manager.is_authenticated()}
+@app.get("/auth/validate", response_model=ValidateAuthResponse)
+async def validate_auth(token_manager: TokenManager = Depends(get_token_manager)):
+    """
+    Validate if the token is authenticated.
+    """
+    is_authenticated = await token_manager.is_authenticated()
+    return ValidateAuthResponse(
+        is_authenticated=is_authenticated, response_time=0.0
+    )  # response_time will be updated by middleware
 
 
-@app.post("/message/")
+# @app.post("/message/")
+@app.get("/tables/{table_id}/message/")
 async def create_board_message(
-    request: MessageRequest,
+    table_id: int,
     client: RestaurantClient = Depends(get_restaurant_client),
     order_processor: OrderProcessorChain = Depends(get_order_processor_chain),
 ):
@@ -81,7 +99,7 @@ async def create_board_message(
     Endpoint to create a board message by fetching table content,
     formatting the order, and processing it.
     """
-    table_id = request.table_id
+    table_id = table_id
     try:
         # Validate table_id is an integer
         if not isinstance(table_id, int):
@@ -97,6 +115,8 @@ async def create_board_message(
         file_name = f"comanda_{table_id}.txt"
         file_path = os.path.join(os.getcwd(), file_name)
 
+        processed_table_items = []
+
         # Format the order
         formatted_order = ""
         for item in table_order.get("content", []):
@@ -107,16 +127,26 @@ async def create_board_message(
             # Format the line
             line = f"{product_name} - {quantity} X R$ {price:.2f} = R$ {total:.2f}\n"
             formatted_order += line
+            processed_table_items.append(
+                {
+                    "product_name": product_name,
+                    "quantity": quantity,
+                    "price": price,
+                    "total": total,
+                }
+            )
 
         # Process the formatted order
+        print("Formatted order:", formatted_order)
         order = await order_processor.main(formatted_order, file_path)
+        order["details"]["orders"] = processed_table_items
         return order
 
     except Exception as e:
         handle_request_exception(e)
 
 
-@app.post("load/products/")
+@app.post("/load/products/")
 async def load_products(
     client: RestaurantClient = Depends(get_restaurant_client),
 ):
@@ -132,43 +162,37 @@ async def load_products(
         handle_request_exception(e)
 
 
-@app.post("/order/")
-async def get_order_by_id(
-    request: MessageRequest,
-    client: RestaurantClient = Depends(get_restaurant_client),
+# /tables/{table_id} was @app.post("/order/")
+@app.get("/tables/{table_id}")
+async def get_table(
+    table_id: int, client: RestaurantClient = Depends(get_restaurant_client)
 ):
     """
-    Endpoint to retrieve the order details for a specific table.
+    Get details of a specific table by ID (if necessary).
     """
-    table_id = request.table_id
     try:
-        # Fetch the table order from the RestaurantClient
-        table_order = await client.fetch_table_content(table_id)
-        return table_order
-
+        table_data = await client.fetch_table_content(table_id)
+        return table_data
     except Exception as e:
         handle_request_exception(e)
 
 
-@app.get("/tables/")
-async def get_tables(
-    client: RestaurantClient = Depends(get_restaurant_client),
-):
+@app.get("/tables")
+async def list_tables(client: RestaurantClient = Depends(get_restaurant_client)):
     """
-    Endpoint to retrieve a list of all tables.
+    Retrieve a list of all tables.
     """
     try:
-        # Fetch the list of tables from the RestaurantClient
         tables = await client.fetch_tables()
         return tables
-
     except Exception as e:
         handle_request_exception(e)
 
 
-@app.post("/payment/")
+# @app.post("/payment/")
+@app.get("/tables/{table_id}/payment/")
 async def set_payment_status(
-    request: MessageRequest,
+    table_id: int,
     client: RestaurantClient = Depends(get_restaurant_client),
 ):
     """
@@ -181,7 +205,7 @@ async def set_payment_status(
     Returns:
         dict: A success message with the server response.
     """
-    table_id = request.table_id
+    table_id = table_id
     try:
         # Send a POSTQUEUE message to set the payment status
         response = await client.prebill(table_id)
@@ -197,9 +221,10 @@ async def set_payment_status(
         handle_request_exception(e)
 
 
-@app.post("/close/")
+# @app.post("/close/")
+@app.get("/tables/{table_id}/close/")
 async def close_table_endpoint(
-    request: MessageRequest,
+    table_id: int,
     client: RestaurantClient = Depends(get_restaurant_client),
 ):
     """
@@ -212,7 +237,7 @@ async def close_table_endpoint(
     Returns:
         dict: A success message with the server response.
     """
-    table_id = request.table_id
+    table_id = table_id
     try:
         # Send a POSTQUEUE message to close the table
         response = await client.close_table(table_id)

@@ -111,7 +111,7 @@ class TokenManager:
     async def _perform_authentication(self):
         if self.use_mock:
             # Simulate mock authentication with 50% chance of success
-            success = random.choice([True, False])
+            success = random.choice([True, True])
             if success:
                 # Simulate setting a random token
                 self.token = f"mock_token_{random.randint(1000, 9999)}"

@@ -108,7 +108,7 @@ class RestaurantMockClient:
                 status=random.choice(statuses),
                 lockDescription=None,
                 inactive=False,
-                freeTable=random.choice([True, False]),
+                freeTable=random.choice([True, True]),
                 initialUser=random.randint(0, 20),
             )
             mock_tables.append(table)
@@ -153,7 +153,7 @@ class RestaurantMockClient:
                     "globalDiscount": 0.0,
                 }
 
-            num_orders = random.randint(4, 6)
+            num_orders = random.randint(2, 6)
             logger.debug(
                 f"Generating {num_orders} mock orders for table ID {table_id}."
             )

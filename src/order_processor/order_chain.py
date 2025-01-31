@@ -56,6 +56,7 @@ class OrderProcessorChain:
     async def process_comanda(self, comanda_text: str):
         """Processes the 'comanda' and performs corrections if needed."""
         self.comanda_text = comanda_text
+        print("Chegou Comanda: ", comanda_text)
         chain = order_process_prompt | self.get_model()
 
         response = await chain.ainvoke(
@@ -75,6 +76,8 @@ class OrderProcessorChain:
             formatted_response = formatted_response[:-3]
 
         formatted_response = formatted_response.strip()
+
+        print("FOrmatted Response: ", formatted_response)
 
         try:
             self.comanda_data = ComandaData.model_validate_json(formatted_response)
@@ -179,6 +182,7 @@ class OrderProcessorChain:
             "message": processed_message,
             "details": {
                 "total": self.comanda_data.valor_total_bruto,
+                "orders": self.comanda_data.pedidos,
             }
         }
 
