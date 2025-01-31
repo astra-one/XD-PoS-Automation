@@ -136,21 +136,6 @@ class OrderProcessorChain:
         # Carrega configuração (caso seja necessário)
         self.initialize_config("config.ini")
 
-        items_list = [
-            {
-                "product_name": "Picanha na Chapa",
-                "quantity": 2.0,
-                "price": 43.5,
-                "total": 87.0,
-            },
-            {
-                "product_name": "Feijoada Completa",
-                "quantity": 2.0,
-                "price": 53.11,
-                "total": 106.22,
-            },
-        ]
-
         # Constrói lista de pedidos no formato do nosso modelo 'Pedido'
         pedidos = []
         for item in items_list:
@@ -202,8 +187,6 @@ class OrderProcessorChain:
             print(f"{pedido.quantidade}x {pedido.nome_prato} - R$ {subtotal:.2f}")
         print(f"Taxa de serviço: R$ {self.comanda_data.valor_taxa_servico:.2f}")
         print(f"Total Bruto: R$ {self.comanda_data.valor_total_bruto:.2f}")
-        print(f"Desconto: R$ {self.comanda_data.valor_desconto:.2f}")
-        print(f"Total c/ Desconto: R$ {self.comanda_data.valor_total_desconto:.2f}")
 
         # Constrói a mensagem final e (opcionalmente) salva em arquivo
         processed_message = await self.build_and_save_message(output_file)

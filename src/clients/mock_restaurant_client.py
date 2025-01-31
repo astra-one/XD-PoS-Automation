@@ -153,7 +153,7 @@ class RestaurantMockClient:
                     "globalDiscount": 0.0,
                 }
 
-            num_orders = random.randint(2, 6)
+            num_orders = random.randint(6, 30)
             logger.debug(
                 f"Generating {num_orders} mock orders for table ID {table_id}."
             )
