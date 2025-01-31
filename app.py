@@ -28,6 +28,7 @@ app.add_middleware(
 
 app.add_middleware(TimingMiddleware)
 
+
 def read_config_file(filename):
     config = configparser.ConfigParser()
     config.read(filename)
@@ -119,12 +120,27 @@ async def create_board_message(
 
         # Format the order
         formatted_order = ""
+        processed_table_items = []
+
+        # Dicionário para agrupar itens pelo (nome, preço)
+        aggregated_items = {}
+
         for item in table_order.get("content", []):
             product_name = item.get("itemName", "Not found")
             quantity = item.get("quantity", 1)
             price = item.get("price", 0.0)
-            total = item.get("total", 0.0)
-            # Format the line
+
+            # Usamos a tupla (product_name, price) como chave para agrupar
+            key = (product_name, price)
+            if key in aggregated_items:
+                # Soma a quantidade se o item for igual (mesmo nome e preço)
+                aggregated_items[key] += quantity
+            else:
+                aggregated_items[key] = quantity
+
+        # Agora percorremos o dicionário agregado para formatar a saída
+        for (product_name, price), quantity in aggregated_items.items():
+            total = price * quantity
             line = f"{product_name} - {quantity} X R$ {price:.2f} = R$ {total:.2f}\n"
             formatted_order += line
             processed_table_items.append(
@@ -136,9 +152,7 @@ async def create_board_message(
                 }
             )
 
-        # Process the formatted order
-        print("Formatted order:", formatted_order)
-        order = await order_processor.main(formatted_order, file_path)
+        order = await order_processor.main(processed_table_items, table_id, file_path)
         order["details"]["orders"] = processed_table_items
         return order
 
