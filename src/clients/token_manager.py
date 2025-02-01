@@ -1,5 +1,5 @@
 import asyncio
-from http.client import HTTPException
+from fastapi import HTTPException
 import time
 import random
 from typing import Optional
