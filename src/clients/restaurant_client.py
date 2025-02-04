@@ -186,7 +186,9 @@ class RestaurantClient:
                 try:
                     error_id = self._extract_field(response, "[NP]ERRORID[EQ]")
                 except ValueError:
-                    self.token_manager.set_unauthenticated()
+                    pass
+
+                self.token_manager.set_unauthenticated()
 
                 logger.error(f"Queue Sync failed. ErrorID: {error_id}")
                 raise HTTPException(
