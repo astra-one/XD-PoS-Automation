@@ -196,7 +196,9 @@ class HTTPSClient:
                         "[EOM]", ""
                     )
 
-                    print("Response message: ", response_message)
+                    if "ERROR602" in response_message:
+                        print("[Client] Error: Device configuration failed.")
+                        return None
 
                     # Parse the response as a DeviceConfiguration
                     device_configuration = json.loads(response_message)
