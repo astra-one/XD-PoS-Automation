@@ -117,7 +117,9 @@ async def create_board_message(
         # logger.debug(f"Table order: {table_order}")
 
         if not table_order["content"]:
-            # raise HTTPException(status_code=404, detail="Table content not found.")
+            print(25*"-")
+            print("Table content not found.")
+            print(25*"-")
             return []
         # Create the file name based on the table_id
         file_name = f"comanda_{table_id}.txt"
