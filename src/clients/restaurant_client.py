@@ -181,6 +181,8 @@ class RestaurantClient:
                     detail="Failed to receive response from the TCP server",
                 )
 
+            logger.debug(f"Response: {response}")
+
             table_content = self._extract_and_decode_field(
                 response, "[NP]BOARDINFO[EQ]"
             )
