@@ -164,50 +164,50 @@ class RestaurantClient:
         return auth_error
 
     async def fetch_table_content(self, table_id: int) -> Dict:
-    """Fetch content for a specific table and enrich it with product names."""
-    logger.info(f"Fetching content for table ID: {table_id}")
-    try:
-        message = await self.message_builder.build_get_board_content(
-            board_id=str(table_id)
-        )
-        response = await self._send_message(message)
-
-        if not response:
-            logger.error("No response received from TCP server while fetching table content.")
-            raise HTTPException(
-                status_code=500,
-                detail="Failed to receive response from the TCP server",
+        """Fetch content for a specific table and enrich it with product names."""
+        logger.info(f"Fetching content for table ID: {table_id}")
+        try:
+            message = await self.message_builder.build_get_board_content(
+                board_id=str(table_id)
             )
+            response = await self._send_message(message)
 
-        logger.debug(f"Response: {response}")
+            if not response:
+                logger.error("No response received from TCP server while fetching table content.")
+                raise HTTPException(
+                    status_code=500,
+                    detail="Failed to receive response from the TCP server",
+                )
 
-        if "QUEUESYNCFAILED" in response:
-            error_id = None
-            try:
-                error_id = self._extract_field(response, "[NP]ERRORID[EQ]")
-            except ValueError:
-                self.token_manager.set_unauthenticated()
+            logger.debug(f"Response: {response}")
 
-            logger.error(f"Queue Sync failed. ErrorID: {error_id}")
-            raise HTTPException(
-                status_code=400,
-                detail=f"Queue synchronization failed. Error ID: {error_id}",
+            if "QUEUESYNCFAILED" in response:
+                error_id = None
+                try:
+                    error_id = self._extract_field(response, "[NP]ERRORID[EQ]")
+                except ValueError:
+                    self.token_manager.set_unauthenticated()
+
+                logger.error(f"Queue Sync failed. ErrorID: {error_id}")
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Queue synchronization failed. Error ID: {error_id}",
+                )
+
+            table_content = self._extract_and_decode_field(
+                response, "[NP]BOARDINFO[EQ]"
             )
+            logger.debug(f"Raw table content: {table_content}")
 
-        table_content = self._extract_and_decode_field(
-            response, "[NP]BOARDINFO[EQ]"
-        )
-        logger.debug(f"Raw table content: {table_content}")
+            await self._enrich_table_content_with_product_names(table_content)
+            logger.info(f"Enriched table content for table ID {table_id}.")
+            return table_content
 
-        await self._enrich_table_content_with_product_names(table_content)
-        logger.info(f"Enriched table content for table ID {table_id}.")
-        return table_content
-
-    except Exception as e:
-        logger.error(f"Failed to fetch table content: {e}", exc_info=True)
-        raise HTTPException(
-            status_code=500, detail=f"Failed to fetch table content: {str(e)}"
-        )
+        except Exception as e:
+            logger.error(f"Failed to fetch table content: {e}", exc_info=True)
+            raise HTTPException(
+                status_code=500, detail=f"Failed to fetch table content: {str(e)}"
+            )
 
     def _extract_and_decode_field(self, response: str, field_identifier: str) -> Dict:
         """Extract and decode a Base64 encoded field from the response."""
