@@ -109,6 +109,8 @@ async def create_board_message(
         # Fetch the table order from the RestaurantClient
         table_order = await client.fetch_table_content(table_id)
 
+        logger.debug(f"Table order: {table_order}")
+
         if not table_order["content"]:
             # raise HTTPException(status_code=404, detail="Table content not found.")
             return []
