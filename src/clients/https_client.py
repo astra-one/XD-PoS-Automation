@@ -161,7 +161,7 @@ class HTTPSClient:
         try:
             # Generate a random device ID (UUID)
             device_id = str(uuid.uuid4())
-            alias = "Astra"  # Fixed alias
+            alias = "Astra [Não Deletar]"  # Fixed alias
 
             # Prepare the DeviceAuthenticationRequest
             device_auth_request = {
