@@ -350,7 +350,7 @@ class RestaurantClient:
             raise ValueError(error_msg)
 
         extracted = encoded_field[:end].strip()
-        logger.debug(f"Extracted encoded field: {extracted}")
+        # logger.debug(f"Extracted encoded field: {extracted}")
         return extracted
 
     @staticmethod
