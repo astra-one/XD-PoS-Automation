@@ -243,7 +243,7 @@ class TokenManager:
         self.state = "Authenticated" if self.token and not self.is_token_expired() else "Unauthenticated"
         return self.state == "Authenticated"
 
-    async def set_unauthenticated(self):
+    def set_unauthenticated(self):
         self.state = "Unauthenticated"
         self.token = None
         self.token_expiration = None

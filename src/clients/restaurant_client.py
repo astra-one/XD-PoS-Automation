@@ -172,6 +172,10 @@ class RestaurantClient:
             )
             response = await self._send_message(message)
 
+            print(25*"-")
+            print("APÓS SEND MESSAGE: ", response)
+            print(25*"-")
+
             if not response:
                 logger.error("No response received from TCP server while fetching table content.")
                 raise HTTPException(
@@ -179,16 +183,15 @@ class RestaurantClient:
                     detail="Failed to receive response from the TCP server",
                 )
 
-            logger.debug(f"Response Pré: {response}")
-
             if "QUEUESYNCFAILED" in response:
+                print(25*"-")
+                print("ENTROU NO QUEUESYNCFAILED: ", response)
+                print(25*"-")
                 error_id = None
                 try:
                     error_id = self._extract_field(response, "[NP]ERRORID[EQ]")
                 except ValueError:
-                    print(25*"-")
-                    print("Error: ", response)
-                    print(25*"-")
+
                     pass
 
                 self.token_manager.set_unauthenticated()
@@ -200,7 +203,7 @@ class RestaurantClient:
                 )
 
             print(25*"-")
-            print("Response Pós: ", response)
+            print("PASSOU DO QUEUESYNCFAILED", response)
             print(25*"-")
 
             table_content = self._extract_and_decode_field(
