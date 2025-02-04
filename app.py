@@ -106,10 +106,15 @@ async def create_board_message(
         if not isinstance(table_id, int):
             raise HTTPException(status_code=400, detail="table_id must be an integer.")
 
+        print(25*"-")
+
         # Fetch the table order from the RestaurantClient
         table_order = await client.fetch_table_content(table_id)
 
-        logger.debug(f"Table order: {table_order}")
+        print("Table order: ", table_order)
+        print(25*"-")
+
+        # logger.debug(f"Table order: {table_order}")
 
         if not table_order["content"]:
             # raise HTTPException(status_code=404, detail="Table content not found.")
