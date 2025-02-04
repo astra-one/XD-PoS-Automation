@@ -120,11 +120,7 @@ async def create_board_message(
             print(25*"-")
             print("Table content not found.")
             print(25*"-")
-            return []
-
-        print(25*"-")
-        print("Table content found.")
-        print(25*"-")
+            return {"content": []}
 
         # Create the file name based on the table_id
         file_name = f"comanda_{table_id}.txt"
