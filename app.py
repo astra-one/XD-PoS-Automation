@@ -125,6 +125,11 @@ async def create_board_message(
         # Dicionário para agrupar itens pelo (nome, preço)
         aggregated_items = {}
 
+        logger.debug(f"Itens: {table_order.get('content', [])}")
+
+        if table_order.get("content", []):
+            return []
+
         for item in table_order.get("content", []):
             product_name = item.get("itemName", "Not found")
             quantity = item.get("quantity", 1)
