@@ -120,7 +120,12 @@ async def create_board_message(
             print(25*"-")
             print("Table content not found.")
             print(25*"-")
-            return {"content": []}
+            return {
+                "status": "Table content not found.",
+                "message": "",
+                "content": [],
+                "details":{},
+            }
 
         # Create the file name based on the table_id
         file_name = f"comanda_{table_id}.txt"
@@ -278,4 +283,4 @@ async def close_table_endpoint(
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run("app:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run("app:app", host="0.0.0.0", port=8020, reload=True)
