@@ -110,8 +110,8 @@ async def create_board_message(
         table_order = await client.fetch_table_content(table_id)
 
         if not table_order["content"]:
-            raise HTTPException(status_code=404, detail="Table content not found.")
-
+            # raise HTTPException(status_code=404, detail="Table content not found.")
+            return []
         # Create the file name based on the table_id
         file_name = f"comanda_{table_id}.txt"
         file_path = os.path.join(os.getcwd(), file_name)
@@ -124,11 +124,6 @@ async def create_board_message(
 
         # Dicionário para agrupar itens pelo (nome, preço)
         aggregated_items = {}
-
-        logger.debug(f"Itens: {table_order.get('content', [])}")
-
-        if table_order.get("content", []):
-            return []
 
         for item in table_order.get("content", []):
             product_name = item.get("itemName", "Not found")
