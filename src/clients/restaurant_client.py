@@ -116,7 +116,7 @@ class RestaurantClient:
             # Verifica se a exceção diz respeito ao campo "[NP]OBJECT[EQ]" não encontrado
             if "No NP]OBJECT[EQ field found in the response" in str(e):
                 # Marca o token como não autenticado
-                await self.token_manager.set_unauthenticated()
+                self.token_manager.set_unauthenticated()
                 raise HTTPException(
                     status_code=401,
                     detail="Authentication error: token expired or invalid",
@@ -143,7 +143,7 @@ class RestaurantClient:
 
                 if self._is_authentication_error(response):
                     logger.warning("Authentication error detected in response.")
-                    await self.token_manager.set_unauthenticated()
+                    self.token_manager.set_unauthenticated()
                     raise HTTPException(
                         status_code=401,
                         detail="Authentication error: token expired or invalid",
@@ -151,7 +151,7 @@ class RestaurantClient:
                 return response
             except Exception as e:
                 logger.error(f"Failed to send message: {e}", exc_info=True)
-                await self.token_manager.set_unauthenticated()
+                self.token_manager.set_unauthenticated()
                 raise HTTPException(
                     status_code=500, detail=f"Failed to send message: {e}"
                 )
