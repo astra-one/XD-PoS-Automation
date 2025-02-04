@@ -10,6 +10,7 @@ from src.clients.mock_restaurant_client import RestaurantMockClient
 from src.order_processor.order_chain import OrderProcessorChain
 import logging
 import os
+import traceback
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -68,19 +69,23 @@ def get_order_processor_chain() -> OrderProcessorChain:
 
 
 def handle_request_exception(e: Exception):
-    if hasattr(e, "status_code") and e.status_code == 401:
-        logger.error(f"Authentication error: {e}")
-        raise HTTPException(
-            status_code=401, detail="Smart Connect Authentication Error"
-        )
-    elif hasattr(e, "status_code") and e.status_code == 400:
-        logger.error(f"Queue Sync failed: {e}")
-        raise HTTPException(
-            status_code=400, detail="Queue Sync failed."
-        )
-    else:
-        logger.error(f"Unhandled exception: {e}")
-        raise HTTPException(status_code=500, detail="An unexpected error occurred.")
+    if isinstance(e, HTTPException):
+        if e.status_code == 401:
+            logger.error(f"Authentication error: {e.detail}")
+            raise HTTPException(
+                status_code=401, detail=e.detail
+            )
+        elif e.status_code == 400:
+            logger.error(f"Queue Sync failed: {e.detail}")
+            raise HTTPException(
+                status_code=400, detail=e.detail
+            )
+    
+    # Log detalhado para erros inesperados
+    error_trace = traceback.format_exc()
+    logger.error(f"Unhandled exception: {e}\nTraceback: {error_trace}")
+    
+    raise HTTPException(status_code=500, detail="An unexpected error occurred.")
 
 
 @app.get("/auth/validate", response_model=ValidateAuthResponse)

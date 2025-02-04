@@ -191,7 +191,6 @@ class RestaurantClient:
                 try:
                     error_id = self._extract_field(response, "[NP]ERRORID[EQ]")
                 except ValueError:
-
                     pass
 
                 self.token_manager.set_unauthenticated()
@@ -215,8 +214,18 @@ class RestaurantClient:
             logger.info(f"Enriched table content for table ID {table_id}.")
             return table_content
 
+        except HTTPException as http_exc:
+            # Re-raise HTTPExceptions to preserve the original status codes and messages
+            logger.error(f"HTTPException occurred: {http_exc.detail}", exc_info=True)
+
+            self.token_manager.set_unauthenticated()
+
+            raise http_exc
+
         except Exception as e:
+            # Handle unexpected exceptions
             logger.error(f"Failed to fetch table content: {e}", exc_info=True)
+            # self.token_manager.set_unauthenticated()
             raise HTTPException(
                 status_code=500, detail=f"Failed to fetch table content: {str(e)}"
             )
