@@ -196,6 +196,8 @@ class HTTPSClient:
                         "[EOM]", ""
                     )
 
+                    print("Response message: ", response_message)
+
                     # Parse the response as a DeviceConfiguration
                     device_configuration = json.loads(response_message)
                     print(
