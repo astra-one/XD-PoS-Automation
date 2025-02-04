@@ -123,9 +123,10 @@ async def create_board_message(
             return {
                 "status": "Table content not found.",
                 "message": "",
-                "content": [],
                 "details":{},
             }
+
+            # {"status":"Table content not found.","message":"","content":[],"details":{},"response_time":0.04775357246398926}
 
         # Create the file name based on the table_id
         file_name = f"comanda_{table_id}.txt"
