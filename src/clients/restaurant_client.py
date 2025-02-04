@@ -165,6 +165,7 @@ class RestaurantClient:
 
     async def fetch_table_content(self, table_id: int) -> Dict:
         """Fetch content for a specific table and enrich it with product names."""
+        await self.token_manager.get_token()
         logger.info(f"Fetching content for table ID: {table_id}")
         try:
             message = await self.message_builder.build_get_board_content(
