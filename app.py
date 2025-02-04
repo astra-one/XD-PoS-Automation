@@ -73,6 +73,11 @@ def handle_request_exception(e: Exception):
         raise HTTPException(
             status_code=401, detail="Smart Connect Authentication Error"
         )
+    elif hasattr(e, "status_code") and e.status_code == 400:
+        logger.error(f"Queue Sync failed: {e}")
+        raise HTTPException(
+            status_code=400, detail="Queue Sync failed."
+        )
     else:
         logger.error(f"Unhandled exception: {e}")
         raise HTTPException(status_code=500, detail="An unexpected error occurred.")
@@ -106,20 +111,13 @@ async def create_board_message(
         if not isinstance(table_id, int):
             raise HTTPException(status_code=400, detail="table_id must be an integer.")
 
-        print(25*"-")
-
         # Fetch the table order from the RestaurantClient
         table_order = await client.fetch_table_content(table_id)
 
-        print("Table order: ", table_order)
-        print(25*"-")
 
         # logger.debug(f"Table order: {table_order}")
 
         if not table_order["content"]:
-            print(25*"-")
-            print("Table content not found.")
-            print(25*"-")
             return {
                 "status": "Table content not found.",
                 "message": "",

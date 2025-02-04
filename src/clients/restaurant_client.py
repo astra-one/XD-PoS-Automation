@@ -179,13 +179,16 @@ class RestaurantClient:
                     detail="Failed to receive response from the TCP server",
                 )
 
-            logger.debug(f"Response: {response}")
+            logger.debug(f"Response Pré: {response}")
 
             if "QUEUESYNCFAILED" in response:
                 error_id = None
                 try:
                     error_id = self._extract_field(response, "[NP]ERRORID[EQ]")
                 except ValueError:
+                    print(25*"-")
+                    print("Error: ", response)
+                    print(25*"-")
                     pass
 
                 self.token_manager.set_unauthenticated()
@@ -197,7 +200,7 @@ class RestaurantClient:
                 )
 
             print(25*"-")
-            print("Response: ", response)
+            print("Response Pós: ", response)
             print(25*"-")
 
             table_content = self._extract_and_decode_field(
