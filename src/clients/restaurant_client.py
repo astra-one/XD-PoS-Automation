@@ -196,6 +196,10 @@ class RestaurantClient:
                     detail=f"Queue synchronization failed. Error ID: {error_id}",
                 )
 
+            print(25*"-")
+            print("Response: ", response)
+            print(25*"-")
+
             table_content = self._extract_and_decode_field(
                 response, "[NP]BOARDINFO[EQ]"
             )
