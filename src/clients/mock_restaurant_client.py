@@ -55,13 +55,12 @@ class RestaurantMockClient:
         Mock method to simulate loading products.
         Here it's already done in __init__, so it just logs the action.
         """
-        logger.debug(
-            "Called load_products, but products are already loaded in __init__."
-        )
+        logger.debug("Called load_products, but products are already loaded in __init__.")
 
     def _load_mock_products(self) -> Dict[int, Product]:
         """
         Initialize a set of mock products with realistic Portuguese names and unique IDs.
+        Foram adicionados produtos de buffet para testar a lógica de não cobrança de taxa.
         """
         logger.debug("Loading mock products.")
         predefined_items = [
@@ -69,22 +68,25 @@ class RestaurantMockClient:
             {"id": 2002, "name": "Costela de Cordeiro"},
             {"id": 2003, "name": "Fraldinha Grelhada"},
             {"id": 2004, "name": "Asinha de Frango"},
-            {"id": 2005, "name": "Linguiça Artesanal"},
-            {"id": 2006, "name": "Bife de Ancho"},
-            {"id": 2007, "name": "Maminha Assada"},
-            {"id": 2008, "name": "Espetinho Misto"},
-            {"id": 2009, "name": "Churrasco de Picanha"},
-            {"id": 2010, "name": "Tábua de Frios"},
-            {"id": 2011, "name": "Salada Caesar com Frango"},
-            {"id": 2012, "name": "Risoto de Cogumelos"},
-            {"id": 2013, "name": "Moqueca de Peixe"},
-            {"id": 2014, "name": "Feijoada Completa"},
-            {"id": 2015, "name": "Bacalhau à Brás"},
-            {"id": 2016, "name": "Camarão na Moranga"},
-            {"id": 2017, "name": "Bobó de Camarão"},
-            {"id": 2018, "name": "Pudim de Leite"},
-            {"id": 2019, "name": "Brigadeiro Gourmet"},
-            {"id": 2020, "name": "Quindim Tradicional"},
+            # {"id": 2005, "name": "Linguiça Artesanal"},
+            # {"id": 2006, "name": "Bife de Ancho"},
+            # {"id": 2007, "name": "Maminha Assada"},
+            # {"id": 2008, "name": "Espetinho Misto"},
+            # {"id": 2009, "name": "Churrasco de Picanha"},
+            # {"id": 2010, "name": "Tábua de Frios"},
+            # {"id": 2011, "name": "Salada Caesar com Frango"},
+            # {"id": 2012, "name": "Risoto de Cogumelos"},
+            # {"id": 2013, "name": "Moqueca de Peixe"},
+            # {"id": 2014, "name": "Feijoada Completa"},
+            # {"id": 2015, "name": "Bacalhau à Brás"},
+            # {"id": 2016, "name": "Camarão na Moranga"},
+            # {"id": 2017, "name": "Bobó de Camarão"},
+            # {"id": 2018, "name": "Pudim de Leite"},
+            # {"id": 2019, "name": "Brigadeiro Gourmet"},
+            # {"id": 2020, "name": "Quindim Tradicional"},
+            # Produtos de buffet para testar a lógica de não cobrança de taxa de serviço
+            {"id": 2021, "name": "BUFFET KG"},
+            {"id": 2022, "name": "BUFFET AVONTADE"}
         ]
 
         products = {
@@ -119,7 +121,8 @@ class RestaurantMockClient:
     async def fetch_table_content(self, table_id: int) -> Dict:
         """
         Mock method to fetch table content with random orders.
-        This simulates what fetch_table_content does in RestaurantClient.
+        Além da lógica original, esta versão verifica se todos os itens do pedido
+        possuem a string 'Buffet' no nome. Se sim, a taxa de serviço não é calculada.
         """
         logger.info(f"Fetching content for table ID: {table_id}")
         try:
@@ -151,12 +154,11 @@ class RestaurantMockClient:
                     "content": [],
                     "total": 0.0,
                     "globalDiscount": 0.0,
+                    "serviceFee": 0.0,
                 }
 
-            num_orders = random.randint(2, 4)
-            logger.debug(
-                f"Generating {num_orders} mock orders for table ID {table_id}."
-            )
+            num_orders = random.randint(2, 3)
+            logger.debug(f"Generating {num_orders} mock orders for table ID {table_id}.")
             order_content = []
             total = 0.0
             for _ in range(num_orders):
@@ -186,19 +188,26 @@ class RestaurantMockClient:
                 total += total_price
                 logger.debug(f"Generated mock order: {order}")
 
+            # Verifica se todos os itens do pedido são de buffet (nome contendo 'buffet', ignorando caixa)
+            is_buffet_only = (
+                all("buffet" in order["itemName"].lower() for order in order_content)
+                if order_content
+                else False
+            )
+            # Se o pedido for somente buffet, não aplica taxa de serviço; caso contrário, aplica 10% do total.
+            service_fee = 0.0 if is_buffet_only else round(total * 0.1, 2)
+            logger.debug(f"Buffet only: {is_buffet_only}. Calculated service fee: {service_fee}")
+
             mock_table_content = {
                 "id": table_id,
                 "status": table_status,
-                "tableLocation": (
-                    fake.address() if random.choice([True, False]) else None
-                ),
+                "tableLocation": fake.address() if random.choice([True, False]) else None,
                 "content": order_content,
                 "total": round(total, 2),
                 "globalDiscount": round(random.uniform(0.0, 20.0), 2),
+                "serviceFee": service_fee,
             }
-            await asyncio.sleep(
-                random.uniform(0.05, 0.2)
-            )  # Simulate asynchronous operation
+            await asyncio.sleep(random.uniform(0.05, 0.2))  # Simulate asynchronous operation
             logger.debug(f"Fetched table content: {mock_table_content}")
             return mock_table_content
         except HTTPException as http_exc:
@@ -220,9 +229,7 @@ class RestaurantMockClient:
                 logger.warning("Token expired while fetching tables.")
                 raise HTTPException(status_code=401, detail="Token expired")
 
-            await asyncio.sleep(
-                random.uniform(0.05, 0.2)
-            )  # Simulate asynchronous operation
+            await asyncio.sleep(random.uniform(0.05, 0.2))  # Simulate asynchronous operation
             logger.debug(f"Fetched {len(self.tables)} mock tables.")
             return self.tables
         except HTTPException as http_exc:
@@ -251,19 +258,13 @@ class RestaurantMockClient:
             content = await self.fetch_table_content(table_id)
             orders = content.get("content", [])
             if not orders:
-                logger.warning(
-                    f"No orders found for table ID: {table_id}. Cannot generate prebill."
-                )
-                raise HTTPException(
-                    status_code=404, detail="No orders found for the table."
-                )
+                logger.warning(f"No orders found for table ID: {table_id}. Cannot generate prebill.")
+                raise HTTPException(status_code=404, detail="No orders found for the table.")
 
             # Simulate that the table moves to a 'reserved' state (like a prebill state)
             self.tables[table_id - 1].status = 2
             self.tables[table_id - 1].freeTable = False
-            await asyncio.sleep(
-                random.uniform(0.05, 0.2)
-            )  # Simulate asynchronous operation
+            await asyncio.sleep(random.uniform(0.05, 0.2))  # Simulate asynchronous operation
             logger.info(f"Prebill posted successfully for table ID: {table_id}.")
             return "Pré-conta gerada com sucesso."
         except HTTPException as http_exc:
@@ -292,9 +293,7 @@ class RestaurantMockClient:
             # Simulate closing the table (making it available again)
             self.tables[table_id - 1].status = 0  # Available
             self.tables[table_id - 1].freeTable = True
-            await asyncio.sleep(
-                random.uniform(0.05, 0.2)
-            )  # Simulate asynchronous operation
+            await asyncio.sleep(random.uniform(0.05, 0.2))  # Simulate asynchronous operation
             logger.info(f"Table ID {table_id} closed successfully.")
             return "Mesa fechada com sucesso."
         except HTTPException as http_exc:

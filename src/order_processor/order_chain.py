@@ -18,13 +18,10 @@ class Pedido(BaseModel):
 # Modelo da comanda com valores calculados
 class ComandaData(BaseModel):
     numero_comanda: int
-    porcentagem_desconto: float = 2.0
     porcentagem_taxa_servico: float = 11.0
     valor_pratos: float = Field(default=0.0)
     valor_total_bruto: float = Field(default=0.0)
     valor_taxa_servico: float = Field(default=0.0)
-    valor_desconto: float = Field(default=0.0)
-    valor_total_desconto: float = Field(default=0.0)
     pedidos: List[Pedido]
 
 
@@ -79,7 +76,7 @@ class OrderProcessorChain:
     def build_message(self):
         """
         Monta a mensagem de saída listando os itens da comanda e os valores
-        de taxa, total bruto e desconto.
+        de taxa e total bruto.
         """
         message_parts = []
 
@@ -96,8 +93,6 @@ class OrderProcessorChain:
         summary_message = (
             f"✨ Taxa de Serviço: R$ {self.comanda_data.valor_taxa_servico:.2f}\n"
             f"💳 Total Bruto: R$ {self.comanda_data.valor_total_bruto:.2f}\n"
-            # f"💸 Desconto: R$ {self.comanda_data.valor_desconto:.2f}\n"
-            # f"🏷 Total com Desconto: R$ {self.comanda_data.valor_total_desconto:.2f}"
         )
         message_parts.append(summary_message)
 
@@ -132,7 +127,6 @@ class OrderProcessorChain:
         Recebe a lista de itens (já no formato final) e constrói a comanda,
         com consolidação de pedidos, cálculo de valores e geração da mensagem.
         """
-
         # Carrega configuração (caso seja necessário)
         self.initialize_config("config.ini")
 
@@ -147,37 +141,38 @@ class OrderProcessorChain:
                 )
             )
 
-        # Cria objeto ComandaData (valores default de desconto e taxa já definidos)
+        # Cria objeto ComandaData (apenas taxa de serviço definida)
         self.comanda_data = ComandaData(numero_comanda=numero_comanda, pedidos=pedidos)
 
         # Calcula o valor dos pratos
         self.comanda_data.valor_pratos = sum(
             p.quantidade * p.preco_unitario for p in self.comanda_data.pedidos
         )
+
+        # Determina se todos os itens são do tipo 'buffet'
+        all_buffet = all(
+            "buffet" in pedido.nome_prato.lower() for pedido in self.comanda_data.pedidos
+        )
+
+        if all_buffet:
+            self.comanda_data.porcentagem_taxa_servico = 0.0
+        else:
+            self.comanda_data.porcentagem_taxa_servico = 11.0  # Valor padrão
+
         # Calcula taxa de serviço
         self.comanda_data.valor_taxa_servico = (
             self.comanda_data.valor_pratos
             * self.comanda_data.porcentagem_taxa_servico
             / 100
         )
+
         # Total bruto
         self.comanda_data.valor_total_bruto = (
             self.comanda_data.valor_pratos + self.comanda_data.valor_taxa_servico
         )
-        # Desconto
-        self.comanda_data.valor_desconto = (
-            self.comanda_data.valor_total_bruto
-            * self.comanda_data.porcentagem_desconto
-            / 100
-        )
 
         # Consolida pedidos repetidos
         self.consolidate_comanda()
-
-        # Calcula total com desconto
-        self.comanda_data.valor_total_desconto = (
-            self.comanda_data.valor_total_bruto - self.comanda_data.valor_desconto
-        )
 
         # Exibe no console (opcional)
         print("-" * 25)
