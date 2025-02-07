@@ -217,7 +217,7 @@ async def list_tables(client: RestaurantClient = Depends(get_restaurant_client))
     """
     try:
         tables = await client.fetch_tables()
-        return tables
+        return {"tables": tables, "response_time": 0.0}
     except Exception as e:
         handle_request_exception(e)
 
@@ -287,4 +287,4 @@ async def close_table_endpoint(
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run("app:app", host="0.0.0.0", port=8020, reload=True)
+    uvicorn.run("app:app", host="0.0.0.0", port=8000, reload=True)
