@@ -96,8 +96,8 @@ class OrderProcessorChain:
         summary_message = (
             f"✨ Taxa de Serviço: R$ {self.comanda_data.valor_taxa_servico:.2f}\n"
             f"💳 Total Bruto: R$ {self.comanda_data.valor_total_bruto:.2f}\n"
-            f"💸 Desconto: R$ {self.comanda_data.valor_desconto:.2f}\n"
-            f"🏷 Total com Desconto: R$ {self.comanda_data.valor_total_desconto:.2f}"
+            # f"💸 Desconto: R$ {self.comanda_data.valor_desconto:.2f}\n"
+            # f"🏷 Total com Desconto: R$ {self.comanda_data.valor_total_desconto:.2f}"
         )
         message_parts.append(summary_message)
 
