@@ -301,12 +301,13 @@ class RestaurantClient:
                 status_code=500, detail=f"Failed to post queue: {str(e)}"
             )
 
-    async def close_table(self, table_id: int) -> str:
+    async def close_table(self, table_id: int, payment_type: str) -> str:
         """Send a POSTQUEUE message to close the table after payment."""
         logger.info(f"Closing table ID: {table_id}")
         try:
             message = await self.message_builder.build_close_table_message(
-                employee_id=int(self.USER_ID), table=table_id
+                employee_id=int(self.USER_ID), table=table_id,
+                payment_type=payment_type
             )
             logger.debug(f"Close Table Message: {message}")
             response = await self._send_message(message)

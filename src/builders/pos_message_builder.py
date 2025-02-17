@@ -236,7 +236,7 @@ class MessageBuilder:
         )
 
     async def build_close_table_message(
-        self, employee_id: int, table: int, guid: Optional[str] = None
+        self, employee_id: int, table: int, guid: Optional[str] = None, payment_type: str = "pix"
     ) -> str:
         """
         Constructs the POSTQUEUE message to close the table.
@@ -245,6 +245,7 @@ class MessageBuilder:
             employee_id (int): The ID of the employee (same as USER_ID).
             table (int): The ID of the table being closed.
             guid (str, optional): A unique identifier for the transaction. If not provided, a new UUID will be generated.
+            payment_type (str, optional): The type of payment. Defaults to "14" (pix) or "15" (credit).
 
         Returns:
             str: The constructed POSTQUEUE message string to close the table.
@@ -253,7 +254,7 @@ class MessageBuilder:
         """
         queue_data = {
             "appVersion": 0,
-            "additionalInfo": "1",
+            "additionalInfo": "14" if payment_type == "pix" else "15",
             "customerData": {},
             "employeeId": employee_id,
             "guid": guid or str(uuid.uuid4()),

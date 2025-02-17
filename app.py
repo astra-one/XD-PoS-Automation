@@ -255,9 +255,10 @@ async def set_payment_status(
 
 
 # @app.post("/close/")
-@app.get("/tables/{table_id}/close/")
+@app.get("/tables/{table_id}/close/{payment_type}")
 async def close_table_endpoint(
     table_id: int,
+    payment_type: str = "pix",
     client: RestaurantClient = Depends(get_restaurant_client),
 ):
     """
@@ -273,7 +274,7 @@ async def close_table_endpoint(
     table_id = table_id
     try:
         # Send a POSTQUEUE message to close the table
-        response = await client.close_table(table_id)
+        response = await client.close_table(table_id, payment_type)
         return {"status": "Table closed successfully", "response": response}
 
     except HTTPException as http_exc:
