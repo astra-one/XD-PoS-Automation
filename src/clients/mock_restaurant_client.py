@@ -68,22 +68,22 @@ class RestaurantMockClient:
             {"id": 2002, "name": "Costela de Cordeiro"},
             {"id": 2003, "name": "Fraldinha Grelhada"},
             {"id": 2004, "name": "Asinha de Frango"},
-            # {"id": 2005, "name": "Linguiça Artesanal"},
-            # {"id": 2006, "name": "Bife de Ancho"},
-            # {"id": 2007, "name": "Maminha Assada"},
-            # {"id": 2008, "name": "Espetinho Misto"},
-            # {"id": 2009, "name": "Churrasco de Picanha"},
-            # {"id": 2010, "name": "Tábua de Frios"},
-            # {"id": 2011, "name": "Salada Caesar com Frango"},
-            # {"id": 2012, "name": "Risoto de Cogumelos"},
-            # {"id": 2013, "name": "Moqueca de Peixe"},
-            # {"id": 2014, "name": "Feijoada Completa"},
-            # {"id": 2015, "name": "Bacalhau à Brás"},
-            # {"id": 2016, "name": "Camarão na Moranga"},
-            # {"id": 2017, "name": "Bobó de Camarão"},
-            # {"id": 2018, "name": "Pudim de Leite"},
-            # {"id": 2019, "name": "Brigadeiro Gourmet"},
-            # {"id": 2020, "name": "Quindim Tradicional"},
+            {"id": 2005, "name": "Linguiça Artesanal"},
+            {"id": 2006, "name": "Bife de Ancho"},
+            {"id": 2007, "name": "Maminha Assada"},
+            {"id": 2008, "name": "Espetinho Misto"},
+            {"id": 2009, "name": "Churrasco de Picanha"},
+            {"id": 2010, "name": "Tábua de Frios"},
+            {"id": 2011, "name": "Salada Caesar com Frango"},
+            {"id": 2012, "name": "Risoto de Cogumelos"},
+            {"id": 2013, "name": "Moqueca de Peixe"},
+            {"id": 2014, "name": "Feijoada Completa"},
+            {"id": 2015, "name": "Bacalhau à Brás"},
+            {"id": 2016, "name": "Camarão na Moranga"},
+            {"id": 2017, "name": "Bobó de Camarão"},
+            {"id": 2018, "name": "Pudim de Leite"},
+            {"id": 2019, "name": "Brigadeiro Gourmet"},
+            {"id": 2020, "name": "Quindim Tradicional"},
             # Produtos de buffet para testar a lógica de não cobrança de taxa de serviço
             {"id": 2021, "name": "BUFFET KG"},
             {"id": 2022, "name": "BUFFET AVONTADE"}
@@ -103,7 +103,7 @@ class RestaurantMockClient:
         logger.debug("Loading mock tables.")
         statuses = [1, 1, 2]  # 1: Occupied, 2: Reserved (varied distribution)
         mock_tables = []
-        for i in range(1, 100):  # 99 tables (IDs 1 to 99)
+        for i in range(1, 300):  # 99 tables (IDs 1 to 99)
             table = Table(
                 id=i,
                 name=str(i),
@@ -120,9 +120,8 @@ class RestaurantMockClient:
 
     async def fetch_table_content(self, table_id: int) -> Dict:
         """
-        Mock method to fetch table content with random orders.
-        Além da lógica original, esta versão verifica se todos os itens do pedido
-        possuem a string 'Buffet' no nome. Se sim, a taxa de serviço não é calculada.
+        Mock method to fetch table content with orders.
+        Gera um número realista de pratos para cada mesa, com valores variados.
         """
         logger.info(f"Fetching content for table ID: {table_id}")
         try:
@@ -157,36 +156,204 @@ class RestaurantMockClient:
                     "serviceFee": 0.0,
                 }
 
-            num_orders = random.randint(2, 3)
+            # Gerar um número mais realista de pratos (entre 2 e 6 para uma mesa típica)
+            num_orders = random.randint(2, 6)
             logger.debug(f"Generating {num_orders} mock orders for table ID {table_id}.")
             order_content = []
-            total = 0.0
-            for _ in range(num_orders):
-                product = random.choice(list(self.products.values()))
-                quantity = random.randint(1, 2)
-                price = round(random.uniform(20.0, 100.0), 2)
-                total_price = round(quantity * price, 2)
+            total_value = 0.0
+            
+            # Categorias de produtos para criar pedidos mais realistas
+            categories = {
+                "entradas": [2004, 2005, 2008, 2010],  # IDs de produtos que são entradas
+                "pratos_principais": [2001, 2002, 2003, 2006, 2007, 2009, 2012, 2013, 2014, 2015, 2016, 2017],  # Pratos principais
+                "sobremesas": [2018, 2019, 2020],  # Sobremesas
+                "buffet": [2021, 2022]  # Opções de buffet
+            }
+            
+            # Decidir se a mesa é de buffet ou à la carte
+            is_buffet_table = random.random() < 0.2  # 20% de chance de ser mesa de buffet
+            
+            if is_buffet_table:
+                # Mesa de buffet - apenas itens de buffet
+                buffet_product_id = random.choice(categories["buffet"])
+                buffet_product = self.products[buffet_product_id]
+                quantity = round(random.uniform(0.8, 2.5), 2) if buffet_product_id == 2021 else random.randint(1, 3)
+                price = 69.90 if buffet_product_id == 2021 else 89.90  # Preço por kg ou à vontade
+                item_total = price * quantity
+                total_value += item_total
+                
                 order = {
-                    "itemId": product.id,
-                    "itemType": random.choice([0, 1, 2, 3]),
+                    "itemId": buffet_product.id,
+                    "itemType": 1,  # Tipo comida
                     "parentPosition": -1,
-                    "quantity": float(quantity),
+                    "quantity": quantity,
                     "price": price,
-                    "additionalInfo": fake.sentence(nb_words=6),
+                    "additionalInfo": "",
                     "guid": str(uuid.uuid4()),
                     "employee": random.randint(1, 50),
                     "time": int(time.time() * 1000),
                     "lineLevel": 0,
-                    "ratio": random.choice([0, 1]),
-                    "total": total_price,
-                    "lineDiscount": round(random.uniform(0.0, 10.0), 2),
-                    "completed": random.choice([True, False]),
+                    "ratio": 1,
+                    "total": round(item_total, 2),
+                    "lineDiscount": 0.0,
+                    "completed": True,
                     "parentGuid": "00000000-0000-0000-0000-000000000000",
-                    "itemName": product.name,
+                    "itemName": buffet_product.name,
                 }
                 order_content.append(order)
-                total += total_price
-                logger.debug(f"Generated mock order: {order}")
+                
+                # Adicionar bebidas para mesas de buffet (opcional)
+                if random.random() < 0.8:  # 80% de chance de pedir bebidas
+                    num_drinks = random.randint(1, 3)
+                    for _ in range(num_drinks):
+                        drink_price = round(random.uniform(5.0, 15.0), 2)
+                        drink_quantity = random.randint(1, 2)
+                        drink_total = drink_price * drink_quantity
+                        total_value += drink_total
+                        
+                        drink_order = {
+                            "itemId": 3000 + random.randint(1, 20),  # IDs fictícios para bebidas
+                            "itemType": 2,  # Tipo bebida
+                            "parentPosition": -1,
+                            "quantity": drink_quantity,
+                            "price": drink_price,
+                            "additionalInfo": "",
+                            "guid": str(uuid.uuid4()),
+                            "employee": random.randint(1, 50),
+                            "time": int(time.time() * 1000),
+                            "lineLevel": 0,
+                            "ratio": 1,
+                            "total": round(drink_total, 2),
+                            "lineDiscount": 0.0,
+                            "completed": True,
+                            "parentGuid": "00000000-0000-0000-0000-000000000000",
+                            "itemName": random.choice(["Água Mineral", "Refrigerante", "Suco Natural", "Cerveja"]),
+                        }
+                        order_content.append(drink_order)
+            else:
+                # Mesa à la carte - distribuir pedidos entre categorias
+                # Sempre incluir pelo menos um prato principal
+                main_dish_count = random.randint(1, 3)
+                appetizer_count = random.randint(0, 2)
+                dessert_count = random.randint(0, 2)
+                drink_count = random.randint(1, 4)
+                
+                # Adicionar entradas
+                for _ in range(appetizer_count):
+                    product_id = random.choice(categories["entradas"])
+                    product = self.products[product_id]
+                    price = round(random.uniform(25.0, 45.0), 2)
+                    quantity = random.randint(1, 2)
+                    item_total = price * quantity
+                    total_value += item_total
+                    
+                    order = {
+                        "itemId": product.id,
+                        "itemType": 1,  # Tipo comida
+                        "parentPosition": -1,
+                        "quantity": quantity,
+                        "price": price,
+                        "additionalInfo": fake.sentence(nb_words=6) if random.random() < 0.3 else "",
+                        "guid": str(uuid.uuid4()),
+                        "employee": random.randint(1, 50),
+                        "time": int(time.time() * 1000) - random.randint(900000, 1800000),  # Pedido mais antigo
+                        "lineLevel": 0,
+                        "ratio": 1,
+                        "total": round(item_total, 2),
+                        "lineDiscount": 0.0,
+                        "completed": True,
+                        "parentGuid": "00000000-0000-0000-0000-000000000000",
+                        "itemName": product.name,
+                    }
+                    order_content.append(order)
+                
+                # Adicionar pratos principais
+                for _ in range(main_dish_count):
+                    product_id = random.choice(categories["pratos_principais"])
+                    product = self.products[product_id]
+                    price = round(random.uniform(45.0, 120.0), 2)
+                    quantity = 1  # Geralmente uma pessoa pede um prato principal
+                    item_total = price * quantity
+                    total_value += item_total
+                    
+                    order = {
+                        "itemId": product.id,
+                        "itemType": 1,  # Tipo comida
+                        "parentPosition": -1,
+                        "quantity": quantity,
+                        "price": price,
+                        "additionalInfo": fake.sentence(nb_words=6) if random.random() < 0.4 else "",
+                        "guid": str(uuid.uuid4()),
+                        "employee": random.randint(1, 50),
+                        "time": int(time.time() * 1000) - random.randint(300000, 900000),  # Pedido intermediário
+                        "lineLevel": 0,
+                        "ratio": 1,
+                        "total": round(item_total, 2),
+                        "lineDiscount": 0.0,
+                        "completed": random.random() < 0.9,  # 90% de chance de estar completo
+                        "parentGuid": "00000000-0000-0000-0000-000000000000",
+                        "itemName": product.name,
+                    }
+                    order_content.append(order)
+                
+                # Adicionar sobremesas
+                for _ in range(dessert_count):
+                    product_id = random.choice(categories["sobremesas"])
+                    product = self.products[product_id]
+                    price = round(random.uniform(15.0, 30.0), 2)
+                    quantity = random.randint(1, 2)
+                    item_total = price * quantity
+                    total_value += item_total
+                    
+                    order = {
+                        "itemId": product.id,
+                        "itemType": 1,  # Tipo comida
+                        "parentPosition": -1,
+                        "quantity": quantity,
+                        "price": price,
+                        "additionalInfo": "",
+                        "guid": str(uuid.uuid4()),
+                        "employee": random.randint(1, 50),
+                        "time": int(time.time() * 1000) - random.randint(0, 300000),  # Pedido mais recente
+                        "lineLevel": 0,
+                        "ratio": 1,
+                        "total": round(item_total, 2),
+                        "lineDiscount": 0.0,
+                        "completed": random.random() < 0.7,  # 70% de chance de estar completo
+                        "parentGuid": "00000000-0000-0000-0000-000000000000",
+                        "itemName": product.name,
+                    }
+                    order_content.append(order)
+                
+                # Adicionar bebidas
+                for _ in range(drink_count):
+                    drink_price = round(random.uniform(5.0, 25.0), 2)
+                    drink_quantity = random.randint(1, 2)
+                    drink_total = drink_price * drink_quantity
+                    total_value += drink_total
+                    
+                    drink_names = ["Água Mineral", "Refrigerante", "Suco Natural", "Cerveja", 
+                                  "Caipirinha", "Vinho (Taça)", "Café Expresso", "Chá Gelado"]
+                    
+                    drink_order = {
+                        "itemId": 3000 + random.randint(1, 20),  # IDs fictícios para bebidas
+                        "itemType": 2,  # Tipo bebida
+                        "parentPosition": -1,
+                        "quantity": drink_quantity,
+                        "price": drink_price,
+                        "additionalInfo": "",
+                        "guid": str(uuid.uuid4()),
+                        "employee": random.randint(1, 50),
+                        "time": int(time.time() * 1000) - random.randint(0, 1800000),  # Tempo variado
+                        "lineLevel": 0,
+                        "ratio": 1,
+                        "total": round(drink_total, 2),
+                        "lineDiscount": 0.0,
+                        "completed": True,
+                        "parentGuid": "00000000-0000-0000-0000-000000000000",
+                        "itemName": random.choice(drink_names),
+                    }
+                    order_content.append(drink_order)
 
             # Verifica se todos os itens do pedido são de buffet (nome contendo 'buffet', ignorando caixa)
             is_buffet_only = (
@@ -194,18 +361,24 @@ class RestaurantMockClient:
                 if order_content
                 else False
             )
-            # Se o pedido for somente buffet, não aplica taxa de serviço; caso contrário, aplica 10% do total.
-            service_fee = 0.0 if is_buffet_only else round(total * 0.1, 2)
+            
+            # Se o pedido for somente buffet, não aplica taxa de serviço; caso contrário, 10% do total
+            service_fee = 0.0 if is_buffet_only else round(total_value * 0.1, 2)
             logger.debug(f"Buffet only: {is_buffet_only}. Calculated service fee: {service_fee}")
+
+            global_discount = 0.0
+
+            # Calcular total final
+            final_total = total_value - global_discount + service_fee
 
             mock_table_content = {
                 "id": table_id,
                 "status": table_status,
                 "tableLocation": fake.address() if random.choice([True, False]) else None,
                 "content": order_content,
-                "total": round(total, 2),
-                "globalDiscount": round(random.uniform(0.0, 20.0), 2),
-                "serviceFee": service_fee,
+                "total": round(final_total, 2),
+                "globalDiscount": round(global_discount, 2),
+                "serviceFee": round(service_fee, 2),
             }
             await asyncio.sleep(random.uniform(0.05, 0.2))  # Simulate asynchronous operation
             logger.debug(f"Fetched table content: {mock_table_content}")
@@ -274,7 +447,7 @@ class RestaurantMockClient:
             logger.exception(f"Unexpected error in prebill: {e}")
             raise HTTPException(status_code=500, detail="Erro interno do servidor.")
 
-    async def close_table(self, table_id: int) -> str:
+    async def close_table(self, table_id: int, payment_type: str) -> str:
         """
         Mock method to simulate closing a table, as per the close_table method in RestaurantClient.
         """
