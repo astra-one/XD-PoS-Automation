@@ -39,7 +39,7 @@ def read_config_file(filename):
 def get_token_manager():
     config = read_config_file("config.ini")["Settings"]
     APP_MODE = config.get("app_mode", "prod")  # Default to 'prod' if not specified
-    use_mock = APP_MODE.lower() == "dev"
+    use_mock = APP_MODE.lower() == "dev" or APP_MODE.lower() == "sandbox"
     coti_api_url = config.get("coti_cloud_services_url", "http://localhost:8005")
     token_manager = TokenManager(use_mock=use_mock, url=coti_api_url)
     return token_manager
@@ -288,4 +288,7 @@ async def close_table_endpoint(
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run("app:app", host="0.0.0.0", port=8000, reload=True)
+    config = read_config_file("config.ini")["Settings"]
+    APP_MODE = config.get("app_mode", "prod")
+    port = 8100 if APP_MODE.lower() == "sandbox" else 8000
+    uvicorn.run("app:app", host="0.0.0.0", port=port, reload=True)
