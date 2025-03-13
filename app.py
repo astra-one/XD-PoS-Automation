@@ -290,5 +290,5 @@ if __name__ == "__main__":
 
     config = read_config_file("config.ini")["Settings"]
     APP_MODE = config.get("app_mode", "prod")
-    port = 8100 if APP_MODE.lower() == "sandbox" else 8000
+    port = 8100 if APP_MODE.lower() == "demo" else 8000
     uvicorn.run("app:app", host="0.0.0.0", port=port, reload=True)
