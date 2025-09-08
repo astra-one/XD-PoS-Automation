@@ -25,7 +25,7 @@ handler.setFormatter(formatter)
 if not logger.handlers:
     logger.addHandler(handler)
 
-fake = Faker("pt_BR")
+fake = Faker("fi_FI")
 
 
 class RestaurantMockClient:
@@ -59,34 +59,34 @@ class RestaurantMockClient:
 
     def _load_mock_products(self) -> Dict[int, Product]:
         """
-        Initialize a set of mock products with realistic Portuguese names and unique IDs.
-        Foram adicionados produtos de buffet para testar a lógica de não cobrança de taxa.
+        Initialize a set of mock products with Finnish-style dishes and unique IDs.
+        Buffet products included to exercise the service fee logic.
         """
         logger.debug("Loading mock products.")
         predefined_items = [
-            {"id": 2001, "name": "Picanha na Chapa"},
-            {"id": 2002, "name": "Costela de Cordeiro"},
-            {"id": 2003, "name": "Fraldinha Grelhada"},
-            {"id": 2004, "name": "Asinha de Frango"},
-            {"id": 2005, "name": "Linguiça Artesanal"},
-            {"id": 2006, "name": "Bife de Ancho"},
-            {"id": 2007, "name": "Maminha Assada"},
-            {"id": 2008, "name": "Espetinho Misto"},
-            {"id": 2009, "name": "Churrasco de Picanha"},
-            {"id": 2010, "name": "Tábua de Frios"},
-            {"id": 2011, "name": "Salada Caesar com Frango"},
-            {"id": 2012, "name": "Risoto de Cogumelos"},
-            {"id": 2013, "name": "Moqueca de Peixe"},
-            {"id": 2014, "name": "Feijoada Completa"},
-            {"id": 2015, "name": "Bacalhau à Brás"},
-            {"id": 2016, "name": "Camarão na Moranga"},
-            {"id": 2017, "name": "Bobó de Camarão"},
-            {"id": 2018, "name": "Pudim de Leite"},
-            {"id": 2019, "name": "Brigadeiro Gourmet"},
-            {"id": 2020, "name": "Quindim Tradicional"},
-            # Produtos de buffet para testar a lógica de não cobrança de taxa de serviço
-            {"id": 2021, "name": "BUFFET KG"},
-            {"id": 2022, "name": "BUFFET AVONTADE"}
+            {"id": 2001, "name": "Poronkäristys (Sautéed Reindeer)"},
+            {"id": 2002, "name": "Lohikeitto (Salmon Soup)"},
+            {"id": 2003, "name": "Karjalanpaisti (Karelian Stew)"},
+            {"id": 2004, "name": "Makkara (Grilled Sausage)"},
+            {"id": 2005, "name": "Ruisleipä ja Voi (Rye Bread with Butter)"},
+            {"id": 2006, "name": "Lihapullat (Finnish Meatballs)"},
+            {"id": 2007, "name": "Muikku (Fried Vendace)"},
+            {"id": 2008, "name": "Sillivoileipä (Herring Sandwich)"},
+            {"id": 2009, "name": "Silakkapihvit (Baltic Herring)"},
+            {"id": 2010, "name": "Juustolautanen (Cheese Board)"},
+            {"id": 2011, "name": "Savulohisalaatti (Smoked Salmon Salad)"},
+            {"id": 2012, "name": "Sienirisotto (Mushroom Risotto)"},
+            {"id": 2013, "name": "Uunilohi (Oven-baked Salmon)"},
+            {"id": 2014, "name": "Hernekeitto (Pea Soup)"},
+            {"id": 2015, "name": "Karjalanpiirakka (Karelian Pie)"},
+            {"id": 2016, "name": "Leipäjuusto ja Hilla (Squeaky Cheese with Cloudberry)"},
+            {"id": 2017, "name": "Korvapuusti (Cinnamon Bun)"},
+            {"id": 2018, "name": "Mustikkapiirakka (Blueberry Pie)"},
+            {"id": 2019, "name": "Pannukakku (Oven Pancake)"},
+            {"id": 2020, "name": "Runebergintorttu (Runeberg Torte)"},
+            # Buffet options
+            {"id": 2021, "name": "BUFFET PER KG"},
+            {"id": 2022, "name": "ALL YOU CAN EAT BUFFET"}
         ]
 
         products = {
@@ -136,8 +136,8 @@ class RestaurantMockClient:
                 or table_id < 1
                 or table_id > len(self.tables)
             ):
-                logger.error(f"Invalid table ID: {table_id}. Mesa não encontrada.")
-                raise HTTPException(status_code=404, detail="Mesa não encontrada.")
+                logger.error(f"Invalid table ID: {table_id}. Table not found.")
+                raise HTTPException(status_code=404, detail="Table not found.")
 
             table = self.tables[table_id - 1]
             table_status = table.status
@@ -178,7 +178,7 @@ class RestaurantMockClient:
                 buffet_product_id = random.choice(categories["buffet"])
                 buffet_product = self.products[buffet_product_id]
                 quantity = round(random.uniform(0.8, 2.5), 2) if buffet_product_id == 2021 else random.randint(1, 3)
-                price = 69.90 if buffet_product_id == 2021 else 89.90  # Preço por kg ou à vontade
+                price = 17.90 if buffet_product_id == 2021 else 24.90  # Price per kg or all-you-can-eat
                 item_total = price * quantity
                 total_value += item_total
                 
@@ -227,7 +227,7 @@ class RestaurantMockClient:
                             "lineDiscount": 0.0,
                             "completed": True,
                             "parentGuid": "00000000-0000-0000-0000-000000000000",
-                            "itemName": random.choice(["Água Mineral", "Refrigerante", "Suco Natural", "Cerveja"]),
+                            "itemName": random.choice(["Vesi (Water)", "Limu (Soda)", "Mehu (Juice)", "Olut (Beer)"]),
                         }
                         order_content.append(drink_order)
             else:
@@ -332,8 +332,16 @@ class RestaurantMockClient:
                     drink_total = drink_price * drink_quantity
                     total_value += drink_total
                     
-                    drink_names = ["Água Mineral", "Refrigerante", "Suco Natural", "Cerveja", 
-                                  "Caipirinha", "Vinho (Taça)", "Café Expresso", "Chá Gelado"]
+                    drink_names = [
+                        "Vesi (Water)",
+                        "Limu (Soda)",
+                        "Mehu (Juice)",
+                        "Olut (Beer)",
+                        "Siideri (Cider)",
+                        "Kahvi (Coffee)",
+                        "Tee (Tea)",
+                        "Kivennäisvesi (Sparkling Water)",
+                    ]
                     
                     drink_order = {
                         "itemId": 3000 + random.randint(1, 20),  # IDs fictícios para bebidas
@@ -388,7 +396,7 @@ class RestaurantMockClient:
             raise
         except Exception as e:
             logger.exception(f"Unexpected error in fetch_table_content: {e}")
-            raise HTTPException(status_code=500, detail="Erro interno do servidor.")
+            raise HTTPException(status_code=500, detail="Internal server error.")
 
     async def fetch_tables(self) -> List[Table]:
         """
@@ -410,7 +418,7 @@ class RestaurantMockClient:
             raise
         except Exception as e:
             logger.exception(f"Unexpected error in fetch_tables: {e}")
-            raise HTTPException(status_code=500, detail="Erro interno do servidor.")
+            raise HTTPException(status_code=500, detail="Internal server error.")
 
     async def prebill(self, table_id: int) -> str:
         """
@@ -439,7 +447,7 @@ class RestaurantMockClient:
             self.tables[table_id - 1].freeTable = False
             await asyncio.sleep(random.uniform(0.05, 0.2))  # Simulate asynchronous operation
             logger.info(f"Prebill posted successfully for table ID: {table_id}.")
-            return "Pré-conta gerada com sucesso."
+            return "Pre-bill generated successfully."
         except HTTPException as http_exc:
             logger.error(f"HTTPException in prebill: {http_exc.detail}")
             raise
@@ -460,18 +468,18 @@ class RestaurantMockClient:
                 raise HTTPException(status_code=401, detail="Token expired")
 
             if table_id < 1 or table_id > len(self.tables):
-                logger.error(f"Invalid table ID: {table_id}. Mesa não encontrada.")
-                raise HTTPException(status_code=404, detail="Mesa não encontrada.")
+                logger.error(f"Invalid table ID: {table_id}. Table not found.")
+                raise HTTPException(status_code=404, detail="Table not found.")
 
             # Simulate closing the table (making it available again)
             self.tables[table_id - 1].status = 0  # Available
             self.tables[table_id - 1].freeTable = True
             await asyncio.sleep(random.uniform(0.05, 0.2))  # Simulate asynchronous operation
             logger.info(f"Table ID {table_id} closed successfully.")
-            return "Mesa fechada com sucesso."
+            return "Table closed successfully."
         except HTTPException as http_exc:
             logger.error(f"HTTPException in close_table: {http_exc.detail}")
             raise
         except Exception as e:
             logger.exception(f"Unexpected error in close_table: {e}")
-            raise HTTPException(status_code=500, detail="Erro interno do servidor.")
+            raise HTTPException(status_code=500, detail="Internal server error.")

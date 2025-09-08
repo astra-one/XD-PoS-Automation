@@ -84,15 +84,15 @@ class OrderProcessorChain:
             subtotal = pedido.quantidade * pedido.preco_unitario
             item_message = (
                 f"🍽 {pedido.nome_prato}\n"
-                f"{pedido.quantidade} un. x R$ {pedido.preco_unitario:.2f} = R$ {subtotal:.2f}"
+                f"{pedido.quantidade} pcs x € {pedido.preco_unitario:.2f} = € {subtotal:.2f}"
             )
             message_parts.append(item_message)
 
         message_parts.append("\n-----------------------------------\n")
 
         summary_message = (
-            f"✨ Taxa de Serviço: R$ {self.comanda_data.valor_taxa_servico:.2f}\n"
-            f"💳 Total Bruto: R$ {self.comanda_data.valor_total_bruto:.2f}\n"
+            f"✨ Service Fee: € {self.comanda_data.valor_taxa_servico:.2f}\n"
+            f"💳 Gross Total: € {self.comanda_data.valor_total_bruto:.2f}\n"
         )
         message_parts.append(summary_message)
 
@@ -176,12 +176,12 @@ class OrderProcessorChain:
 
         # Exibe no console (opcional)
         print("-" * 25)
-        print(f"Comanda #{self.comanda_data.numero_comanda} processada com sucesso!")
+        print(f"Bill #{self.comanda_data.numero_comanda} processed successfully!")
         for pedido in self.comanda_data.pedidos:
             subtotal = pedido.quantidade * pedido.preco_unitario
-            print(f"{pedido.quantidade}x {pedido.nome_prato} - R$ {subtotal:.2f}")
-        print(f"Taxa de serviço: R$ {self.comanda_data.valor_taxa_servico:.2f}")
-        print(f"Total Bruto: R$ {self.comanda_data.valor_total_bruto:.2f}")
+            print(f"{pedido.quantidade}x {pedido.nome_prato} - € {subtotal:.2f}")
+        print(f"Service fee: € {self.comanda_data.valor_taxa_servico:.2f}")
+        print(f"Gross Total: € {self.comanda_data.valor_total_bruto:.2f}")
 
         # Constrói a mensagem final e (opcionalmente) salva em arquivo
         processed_message = await self.build_and_save_message(output_file)

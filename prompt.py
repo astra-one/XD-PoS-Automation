@@ -12,30 +12,30 @@ comanda_template = {
 }
 
 order_process_prompt = """
-Responda somente em JSON.
-Preencha o seguinte JSON exemplo:
+Answer only in JSON.
+Fill the following JSON example:
 {comanda_template}
 
-Separe os itens seguindo o template: {pedido_template}
-O pedido estará no formato NOME_ITEM'x' QUANTIDADE PRECO_UNITARIO = PRECO_TOTAL_ITEM
-Caso não haja PRECO_UNITARIO, divida o PRECO_TOTAL_ITEM pela QUANTIDADE.
+Separate items following the template: {pedido_template}
+The order will be in the format ITEM_NAME 'x' QUANTITY UNIT_PRICE = ITEM_TOTAL
+If there is no UNIT_PRICE, divide ITEM_TOTAL by QUANTITY.
 
 {comanda}
 """
 
 consolidate_template = """
-Resposta somente em JSON.
+Respond only in JSON.
 
-A partir do JSON fornecido, junte todos os pedidos que tiverem o mesmo nome e valor unitário.
-Caso o valor unitário seja diferente, mantenha os pedidos separados.
-Me retorne apenas o JSON com os pedidos consolidados.
+From the provided JSON, merge all orders that have the same name and unit price.
+If the unit price differs, keep the orders separate.
+Return only the JSON with the consolidated orders.
 
 {comanda_data}
 """
 
 message_enhancer_prompt = """
-Altere os emojis de cada prato, adicionando emojis personalizados para cada prato.
-Me retorne apenas o texto da mensagem com os emojis alterados, e as casas decimais utilizando virgula.
+Adjust the emojis for each dish, adding appropriate emojis per item.
+Return only the message text with updated emojis, using the euro symbol (€) and comma decimal separators.
 
 {message}
 """

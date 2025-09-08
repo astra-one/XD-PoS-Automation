@@ -174,7 +174,7 @@ class RestaurantClient:
             response = await self._send_message(message)
 
             print(25*"-")
-            print("APÓS SEND MESSAGE: ", response)
+            print("AFTER SEND MESSAGE:", response)
             print(25*"-")
 
             if not response:
@@ -186,7 +186,7 @@ class RestaurantClient:
 
             if "QUEUESYNCFAILED" in response:
                 print(25*"-")
-                print("ENTROU NO QUEUESYNCFAILED: ", response)
+                print("ENTERED QUEUESYNCFAILED:", response)
                 print(25*"-")
                 error_id = None
                 try:
@@ -203,7 +203,7 @@ class RestaurantClient:
                 )
 
             print(25*"-")
-            print("PASSOU DO QUEUESYNCFAILED", response)
+            print("PASSED QUEUESYNCFAILED", response)
             print(25*"-")
 
             table_content = self._extract_and_decode_field(

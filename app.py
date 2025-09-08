@@ -132,7 +132,7 @@ async def create_board_message(
             # {"status":"Table content not found.","message":"","content":[],"details":{},"response_time":0.04775357246398926}
 
         # Create the file name based on the table_id
-        file_name = f"comanda_{table_id}.txt"
+        file_name = f"bill_{table_id}.txt"
         file_path = os.path.join(os.getcwd(), file_name)
 
         processed_table_items = []
@@ -160,7 +160,7 @@ async def create_board_message(
         # Agora percorremos o dicionário agregado para formatar a saída
         for (product_name, price), quantity in aggregated_items.items():
             total = price * quantity
-            line = f"{product_name} - {quantity} X R$ {price:.2f} = R$ {total:.2f}\n"
+            line = f"{product_name} - {quantity} x € {price:.2f} = € {total:.2f}\n"
             formatted_order += line
             processed_table_items.append(
                 {

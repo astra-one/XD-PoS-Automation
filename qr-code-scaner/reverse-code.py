@@ -24,14 +24,14 @@ def get_short_url(image_path):
     return None
 
 
-# Função para extrair o número da mesa a partir do nome do arquivo
+# Function to extract the table number from the filename
 def get_table_number_from_filename(filename):
-    # Usa expressões regulares para encontrar o número após 'mesa' no nome do arquivo
+    # Use regex to find the number after 'mesa' in the filename
     match = re.search(r"mesa[-_]?(\d+)", filename, re.IGNORECASE)
     if match:
         return match.group(1)
     else:
-        print(f"Não foi possível extrair o número da mesa do arquivo {filename}")
+        print(f"Could not extract the table number from file {filename}")
         return None
 
 
@@ -49,13 +49,13 @@ for filename in os.listdir(QR_CODES_FOLDER):
         # Extrair o shortCode a partir do shortUrl
         short_code = short_url.split("/")[-1]
 
-        # Extrair o número da mesa a partir do nome do arquivo
+        # Extract the table number from the filename
         table_number = get_table_number_from_filename(filename)
         if not table_number:
             continue
 
-        # Construir o longUrl
-        message = f"Gostaria de pagar a comanda {table_number}!"
+        # Build the longUrl
+        message = f"I'd like to pay the bill {table_number}!"
         encoded_message = message.replace(" ", "%20")
         long_url = f"https://wa.me/{WHATSAPP_PHONE_NUMBER}?text={encoded_message}"
 

@@ -15,15 +15,15 @@ class MessageBuilder:
         for pedido in self.order.pedidos:
             item_message = (
                 f"🍽 {pedido.nome_prato}\n"
-                f"{pedido.quantidade} un. x R$ {pedido.preco_unitario:.2f} = R$ {pedido.quantidade * pedido.preco_unitario:.2f}"
+                f"{pedido.quantidade} pcs x € {pedido.preco_unitario:.2f} = € {pedido.quantidade * pedido.preco_unitario:.2f}"
             )
             message_parts.append(item_message)
 
         message_parts.append("\n-----------------------------------\n")
 
         summary_message = (
-            f"✨ Taxa de Serviço: R$ {self.order.valor_taxa_servico:.2f}\n"
-            f"💳 Total Bruto: R$ {self.order.valor_total_bruto:.2f}\n"
+            f"✨ Service Fee: € {self.order.valor_taxa_servico:.2f}\n"
+            f"💳 Gross Total: € {self.order.valor_total_bruto:.2f}\n"
             # f"💸 *Desconto* (*{self.order.porcentagem_desconto}*%): -R$ {(self.order.valor_desconto):.2f}\n"
             # "\n-----------------------------------\n"
             # f"*🔹 Total com Desconto: R$ {self.order.valor_total_desconto:.2f}*"
